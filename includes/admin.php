@@ -54,11 +54,16 @@ add_action('admin_enqueue_scripts', function ($hook) {
     if (defined('TRP_PLUGIN_URL') && defined('TRP_PLUGIN_VERSION')) {
         wp_enqueue_style('trp-settings-style', TRP_PLUGIN_URL . 'assets/css/trp-back-end-style.css', [], TRP_PLUGIN_VERSION);
     }
-    // file time in the version: a changed file is always reloaded, even within one plugin version
+    // CSS and JS are embedded in the page instead of loaded as files: some sites strip the ?ver= query string
+    // (speed plugins) and send assets with a long browser cache, so an updated file would never reach the browser.
     $trwatch_dir = plugin_dir_path(TRWATCH_FILE);
-    wp_enqueue_style('trwatch-admin', plugins_url('assets/admin.css', TRWATCH_FILE), [], TRWATCH_VERSION . '.' . filemtime($trwatch_dir . 'assets/admin.css'));
-    wp_enqueue_script('trwatch-admin', plugins_url('assets/admin.js', TRWATCH_FILE), [], TRWATCH_VERSION . '.' . filemtime($trwatch_dir . 'assets/admin.js'), true);
-    wp_localize_script('trwatch-admin', 'trwatchData', [
+    wp_register_style('trwatch-admin', false, [], TRWATCH_VERSION);
+    wp_enqueue_style('trwatch-admin');
+    wp_add_inline_style('trwatch-admin', (string) file_get_contents($trwatch_dir . 'assets/admin.css'));
+    wp_register_script('trwatch-admin', false, [], TRWATCH_VERSION, true);
+    wp_enqueue_script('trwatch-admin');
+    wp_add_inline_script('trwatch-admin', (string) file_get_contents($trwatch_dir . 'assets/admin.js'));
+    wp_add_inline_script('trwatch-admin', 'window.trwatchData = ' . wp_json_encode([
         'ajax'  => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('trwatch'),
         'batch' => trwatch_sources_per_batch(1),   // retry: target pages per request (each also fetches its original)
@@ -81,7 +86,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'unexpected'  => __('Unexpected server response (HTTP %d).', 'translation-watchdog-for-translatepress'),
             'failed'      => __('Request failed.', 'translation-watchdog-for-translatepress'),
         ],
-    ]);
+    ]) . ';', 'before');   // settings first, then the script that reads them
 });
 
 /** Settings form: saved before any output, then redirect (post/redirect/get). */

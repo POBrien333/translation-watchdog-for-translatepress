@@ -29,6 +29,7 @@ Adds a **Watchdog** tab to the TranslatePress settings. It compares every public
 
 = 0.3.7 =
 * Fix: "Check again" on Dashboard → Updates finds new releases immediately.
+* Fix: updates to the screen's look and behaviour take effect without a hard reload.
 
 = 0.3.6 =
 * Content aligned with the TranslatePress header and tabs; no line under the re-check icon.

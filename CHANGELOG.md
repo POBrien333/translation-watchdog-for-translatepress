@@ -2,6 +2,7 @@
 
 ## 0.3.7
 
+- Fix: after an update the Watchdog screen could keep the old look (blue underlined icon, no indent) until a hard reload. Some sites strip the `?ver=` query string from file URLs and send CSS with a one-year browser cache. The screen's CSS and JS are now embedded in the page, so updates take effect immediately.
 - Fix: "Check again" on Dashboard → Updates did not see a new release for up to 6 hours, because the plugin cached GitHub's answer. "Check again" now clears that cache, and it lasts 1 hour instead of 6.
 
 ## 0.3.6
