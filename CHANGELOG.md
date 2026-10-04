@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.7
+
+- Fix: "Check again" on Dashboard → Updates did not see a new release for up to 6 hours, because the plugin cached GitHub's answer. "Check again" now clears that cache, and it lasts 1 hour instead of 6.
+
 ## 0.3.6
 
 - The Watchdog content is indented like the TranslatePress header and tabs.

@@ -35,8 +35,8 @@ add_filter('update_plugins_github.com', function ($update, $plugin_data, $plugin
                 }
             }
         }
-        // cache misses too, so a GitHub outage doesn't slow down every admin page
-        set_transient('trwatch_release', $release, 6 * HOUR_IN_SECONDS);
+        // cache misses too, so a GitHub outage doesn't slow down every admin page; "Check again" clears it (below)
+        set_transient('trwatch_release', $release, HOUR_IN_SECONDS);
     }
     if (!$release) return $update;
 
@@ -49,6 +49,12 @@ add_filter('update_plugins_github.com', function ($update, $plugin_data, $plugin
         'icons'   => ['svg' => plugins_url('assets/icon.svg', TRWATCH_FILE), 'default' => plugins_url('assets/icon.svg', TRWATCH_FILE)],
     ];
 }, 10, 3);
+
+// Dashboard → Updates → "Check again" must ask GitHub again, not answer from the cache
+add_action('load-update-core.php', function () {
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- only clears a cache, the page itself checks capabilities
+    if (isset($_GET['force-check']) && current_user_can('update_plugins')) delete_transient('trwatch_release');
+});
 
 // forget the cached release after an update, so the next check sees the new state
 add_action('upgrader_process_complete', function () {
