@@ -1,4 +1,6 @@
-# Translation Watchdog for TranslatePress
+<p align="center"><img src="assets/icon.svg" width="160" height="160" alt="Translation Watchdog icon: a split letter A, a scan line finds the seam"></p>
+
+<h1 align="center">Translation Watchdog for TranslatePress</h1>
 
 Finds text that was never translated on a [TranslatePress](https://wordpress.org/plugins/translatepress-multilingual/) site — for **any language combination**.
 

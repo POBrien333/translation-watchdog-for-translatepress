@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.5
+
+- Plugin icon (`assets/icon.svg`, animated): shown in the README and on Dashboard → Updates.
+
 ## 0.3.4
 
 - Re-check icon: no underline (WordPress underlines link-style buttons, and the line spun with the icon).

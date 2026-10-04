@@ -45,6 +45,8 @@ add_filter('update_plugins_github.com', function ($update, $plugin_data, $plugin
         'version' => $release['version'],
         'url'     => $release['url'],
         'package' => $release['package'],
+        // shown on Dashboard → Updates instead of the grey default
+        'icons'   => ['svg' => plugins_url('assets/icon.svg', TRWATCH_FILE), 'default' => plugins_url('assets/icon.svg', TRWATCH_FILE)],
     ];
 }, 10, 3);
 
