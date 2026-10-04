@@ -23,6 +23,16 @@
       <stop offset="0" stop-color="#93F7DD"/>
       <stop offset="1" stop-color="#1FBF97"/>
     </linearGradient>
+    <linearGradient id="laser" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFB547" stop-opacity="0"/>
+      <stop offset=".2" stop-color="#FFC566"/>
+      <stop offset=".8" stop-color="#FFC566"/>
+      <stop offset="1" stop-color="#FFB547" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="wake" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFB547" stop-opacity="0"/>
+      <stop offset="1" stop-color="#FFB547" stop-opacity=".18"/>
+    </linearGradient>
     <clipPath id="left"><rect x="0" y="0" width="126.5" height="256"/></clipPath>
     <clipPath id="right"><rect x="129.5" y="0" width="126.5" height="256"/></clipPath>
     <clipPath id="tileClip"><rect width="256" height="256" rx="58"/></clipPath>
@@ -33,7 +43,10 @@
       <feComposite in2="o" operator="in"/>
       <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    
+    <filter id="glow" x="-50%" y="-500%" width="200%" height="1100%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
   <rect width="256" height="256" rx="58" fill="url(#tile)"/>
   <rect width="256" height="256" rx="58" fill="url(#bloom)"/>
@@ -41,6 +54,10 @@
     <g filter="url(#lift)">
       <g clip-path="url(#left)"><path fill-rule="evenodd" d="M58 206 L110 50 H146 L198 206 H164 L152 170 H104 L92 206 Z M113 142 H143 L128 94 Z" fill="url(#paper)"/></g>
       <g transform="translate(0 6)"><g clip-path="url(#right)"><path fill-rule="evenodd" d="M58 206 L110 50 H146 L198 206 H164 L152 170 H104 L92 206 Z M113 142 H143 L128 94 Z" fill="url(#mint)"/></g></g>
+    </g>
+    <g transform="translate(0 186)">
+      <rect x="22" y="-28" width="212" height="28" fill="url(#wake)"/>
+      <rect x="22" y="-1.5" width="212" height="3" rx="1.5" fill="url(#laser)" filter="url(#glow)"/>
     </g>
     <circle cx="128" cy="160" r="8" fill="#FFB547" stroke="#05242C" stroke-width="3"/>
   </g>
