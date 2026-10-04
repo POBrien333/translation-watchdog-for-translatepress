@@ -12,3 +12,5 @@
 /CHANGELOG.md     export-ignore
 /README.md        export-ignore
 /languages/.gitkeep export-ignore
+/assets/icon-static.svg export-ignore
+/assets/icon-*.png  export-ignore

@@ -3,6 +3,7 @@
 ## 0.3.5
 
 - Plugin icon (`assets/icon.svg`, animated): shown in the README and on Dashboard → Updates.
+- `assets/icon-static.svg` (still, no CSS — passes WordPress SVG sanitizers, opens in design tools) and `icon-256.png` / `icon-512.png`, for use elsewhere. Not in the plugin zip.
 
 ## 0.3.4
 
