@@ -29,6 +29,7 @@ jobs:
         run: |
           mkdir -p build
           git archive HEAD --prefix=translation-watchdog-for-translatepress/ | tar -x -C build
+          mkdir -p build/translation-watchdog-for-translatepress/languages
           wp i18n make-pot build/translation-watchdog-for-translatepress \
             build/translation-watchdog-for-translatepress/languages/translation-watchdog-for-translatepress.pot \
             --domain=translation-watchdog-for-translatepress
