@@ -16,7 +16,7 @@ Text that was deliberately translated to the same words (brand names, "FAQ") is 
 
 ## Why does this exist?
 
-If you translate your site by hand to get the quality right, it's easy to miss a string — a button label, an image's alt text, a line in the footer. And every time you change the design, new strings appear that are just as easy to forget.
+If you translate your site by hand to keep its quality and tone consistent, it's easy to miss a string — a button label, an image's alt text, a line somewhere. And every time you change the design, new strings appear that you might forget to translate.
 
 TranslatePress shows you a page at a time, so there is no quick way to see what's still missing across the whole site. This plugin does exactly that: one scan, and you get a list of every untranslated piece of text, page by page, with a link straight into the TranslatePress editor. So you know your visitors don't see a mix of languages.
 
