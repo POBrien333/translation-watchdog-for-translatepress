@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0
+## 0.3.3
 
 - Re-check button (↻) next to each page link: checks that one page again and replaces its card — "✓ Nothing left to fix" when done. Also on pages that could not be fetched. Updates the saved result.
 
