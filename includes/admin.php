@@ -1,0 +1,449 @@
+<?php
+/**
+ * The Watchdog tab: registration, assets, settings, results and AJAX.
+ */
+
+if (!defined('ABSPATH')) exit;
+
+/* ---------- registration ---------- */
+
+/** Screen ID as WordPress built it — never hardcode it, it depends on the parent menu. */
+function trwatch_hook_suffix($set = null) {
+    static $hook = '';
+    if ($set !== null) $hook = $set;
+    return $hook;
+}
+
+function trwatch_screen_url() {
+    return admin_url('admin.php?page=' . TRWATCH_SLUG);
+}
+
+add_action('admin_menu', function () {
+    if (!trwatch_trp()) return;
+    $hook = add_submenu_page('TRPHidden', __('Translation Watchdog', 'translation-watchdog-for-translatepress'), 'TRPHidden',
+        'manage_options', TRWATCH_SLUG, 'trwatch_render');
+    if (!$hook) return;
+    trwatch_hook_suffix($hook);
+    add_action('load-' . $hook, 'trwatch_handle_settings');
+});
+
+add_filter('trp_settings_tabs', function ($tabs) {
+    $tabs[] = ['name' => __('Watchdog', 'translation-watchdog-for-translatepress'), 'url' => trwatch_screen_url(), 'page' => TRWATCH_SLUG];
+    return $tabs;
+}, 99);   // after TranslatePress' own tabs
+
+add_filter('plugin_action_links_' . plugin_basename(TRWATCH_FILE), function ($links) {
+    if (trwatch_trp()) {
+        array_unshift($links, '<a href="' . esc_url(trwatch_screen_url()) . '">' . esc_html__('Open Watchdog', 'translation-watchdog-for-translatepress') . '</a>');
+    }
+    return $links;
+});
+
+// the earlier single-file version would add a second tab
+add_action('admin_notices', function () {
+    if (!function_exists('cstw_render') || !current_user_can('manage_options')) return;
+    echo '<div class="notice notice-warning"><p>'
+       . esc_html__('Translation Watchdog: the old must-use version (wp-content/mu-plugins/cs-translation-watchdog.php) is still installed. Delete that file — this plugin replaces it.', 'translation-watchdog-for-translatepress')
+       . '</p></div>';
+});
+
+add_action('admin_enqueue_scripts', function ($hook) {
+    if ($hook === '' || $hook !== trwatch_hook_suffix()) return;
+
+    // TranslatePress only loads its settings CSS on its own pages
+    if (defined('TRP_PLUGIN_URL') && defined('TRP_PLUGIN_VERSION')) {
+        wp_enqueue_style('trp-settings-style', TRP_PLUGIN_URL . 'assets/css/trp-back-end-style.css', [], TRP_PLUGIN_VERSION);
+    }
+    wp_enqueue_style('trwatch-admin', plugins_url('assets/admin.css', TRWATCH_FILE), [], TRWATCH_VERSION);
+    wp_enqueue_script('trwatch-admin', plugins_url('assets/admin.js', TRWATCH_FILE), [], TRWATCH_VERSION, true);
+    wp_localize_script('trwatch-admin', 'trwatchData', [
+        'ajax'  => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('trwatch'),
+        'batch' => trwatch_sources_per_batch(1),   // retry: target pages per request (each also fetches its original)
+        'i18n'  => [
+            /* translators: 1: pages done, 2: pages total */
+            'collecting'  => __('Collecting pages…', 'translation-watchdog-for-translatepress'),
+            /* translators: 1: pages done, 2: pages total */
+            'checking'    => __('Checking %1$d / %2$d pages…', 'translation-watchdog-for-translatepress'),
+            /* translators: 1: pages done, 2: pages total */
+            'retrying'    => __('Retrying %1$d / %2$d pages…', 'translation-watchdog-for-translatepress'),
+            'scanning'    => __('Scanning…', 'translation-watchdog-for-translatepress'),
+            'soFar'       => __('possible issues so far', 'translation-watchdog-for-translatepress'),
+            'scanFailed'  => __('Scan failed:', 'translation-watchdog-for-translatepress'),
+            'retryFailed' => __('Retry failed:', 'translation-watchdog-for-translatepress'),
+            'skipFailed'  => __('Could not skip:', 'translation-watchdog-for-translatepress'),
+            'undoFailed'  => __('Could not undo:', 'translation-watchdog-for-translatepress'),
+            'expired'     => __('Session expired — reload the page.', 'translation-watchdog-for-translatepress'),
+            /* translators: %d: HTTP status code */
+            'unexpected'  => __('Unexpected server response (HTTP %d).', 'translation-watchdog-for-translatepress'),
+            'failed'      => __('Request failed.', 'translation-watchdog-for-translatepress'),
+        ],
+    ]);
+});
+
+/** Settings form: saved before any output, then redirect (post/redirect/get). */
+function trwatch_handle_settings() {
+    if (!isset($_POST['trwatch_save'])) return;
+    check_admin_referer('trwatch_settings');
+    if (!current_user_can('manage_options')) wp_die(esc_html__('Not allowed.', 'translation-watchdog-for-translatepress'), 403);
+
+    $allow = isset($_POST['trwatch_allow']) ? sanitize_textarea_field(wp_unslash($_POST['trwatch_allow'])) : '';
+    update_option(TRWATCH_OPT_ALLOW, $allow, false);
+
+    // validated against TranslatePress' languages
+    $posted = isset($_POST['trwatch_langs']) && is_array($_POST['trwatch_langs']) ? array_map('sanitize_text_field', wp_unslash($_POST['trwatch_langs'])) : [];
+    update_option(TRWATCH_OPT_LANGS, array_values(array_intersect($posted, array_keys(trwatch_target_languages()))), false);
+
+    wp_safe_redirect(add_query_arg('trwatch-saved', '1', trwatch_screen_url()));
+    exit;
+}
+
+/* ---------- rendering ---------- */
+
+/** Tags the result fragments use — every fragment goes through wp_kses() with this at the point of output. */
+function trwatch_allowed_html() {
+    return [
+        'div'    => ['class' => true],
+        'h2'     => [],
+        'h3'     => [],
+        'p'      => ['class' => true],
+        'strong' => ['class' => true],
+        'span'   => ['class' => true, 'title' => true],
+        'ul'     => ['class' => true],
+        'li'     => ['data-text' => true, 'data-url' => true],
+        'a'      => ['href' => true, 'target' => true, 'rel' => true, 'class' => true],
+        'button' => ['type' => true, 'class' => true, 'id' => true, 'title' => true],
+    ];
+}
+
+function trwatch_kses($html) {
+    return wp_kses($html, trwatch_allowed_html());
+}
+
+function trwatch_where_label($where) {
+    $labels = [
+        'text'             => __('text', 'translation-watchdog-for-translatepress'),
+        'alt'              => __('alt', 'translation-watchdog-for-translatepress'),
+        'title'            => __('title', 'translation-watchdog-for-translatepress'),
+        'placeholder'      => __('placeholder', 'translation-watchdog-for-translatepress'),
+        'aria-label'       => __('aria-label', 'translation-watchdog-for-translatepress'),
+        'title tag'        => __('title tag', 'translation-watchdog-for-translatepress'),
+        'meta description' => __('meta description', 'translation-watchdog-for-translatepress'),
+        'every page'       => __('every page', 'translation-watchdog-for-translatepress'),
+    ];
+    return $labels[$where] ?? $where;
+}
+
+function trwatch_status_badge($status) {
+    $badges = [
+        'missing'   => [__('Not translated', 'translation-watchdog-for-translatepress'),
+                        __('TranslatePress knows this text but has no translation for it.', 'translation-watchdog-for-translatepress')],
+        'not_shown' => [__('Translated, not shown', 'translation-watchdog-for-translatepress'),
+                        __('A translation exists, but the page still shows the original — usually a spelling difference such as quotes, dashes or HTML entities.', 'translation-watchdog-for-translatepress')],
+        'unknown'   => [__('Not in TranslatePress', 'translation-watchdog-for-translatepress'),
+                        __('Not in TranslatePress\' string list — it may come from JavaScript, an image or a plugin TranslatePress does not see.', 'translation-watchdog-for-translatepress')],
+    ];
+    if (!isset($badges[$status])) return '';
+    return '<span class="trwatch-badge trwatch-badge-' . esc_attr($status) . '" title="' . esc_attr($badges[$status][1]) . '">' . esc_html($badges[$status][0]) . '</span>';
+}
+
+function trwatch_card($url, $strings, $label = null) {
+    $edit = add_query_arg('trp-edit-translation', 'true', $url);
+    $h = '<div class="trwatch-page"><div class="trwatch-head"><a href="' . esc_url($url) . '" target="_blank" rel="noopener">'
+       . esc_html($label ?? wp_make_link_relative($url)) . '</a>'
+       . '<a class="button button-small" href="' . esc_url($edit) . '" target="_blank" rel="noopener">' . esc_html__('Open in translator', 'translation-watchdog-for-translatepress') . '</a>'
+       . '<span class="trwatch-n">' . (int) count($strings) . '</span></div><ul>';
+    foreach ($strings as $s) {
+        $h .= '<li data-text="' . esc_attr($s['text']) . '">'
+            . trwatch_status_badge($s['status'] ?? 'unknown')
+            . '<span class="trwatch-where">' . esc_html(trwatch_where_label($s['where'])) . '</span>'
+            . '<span class="trwatch-text">' . esc_html($s['text']) . '</span>'
+            . '<button type="button" class="button-link trwatch-skip" title="' . esc_attr__('Not an issue — hide this string from now on', 'translation-watchdog-for-translatepress') . '">'
+            . esc_html__('Skip', 'translation-watchdog-for-translatepress') . '</button></li>';
+    }
+    return $h . '</ul></div>';
+}
+
+function trwatch_error_card($url, $error) {
+    return '<div class="trwatch-page trwatch-err"><div class="trwatch-head"><a href="' . esc_url($url) . '" target="_blank" rel="noopener">'
+         . esc_html(wp_make_link_relative($url)) . '</a> — ' . esc_html($error) . '</div></div>';
+}
+
+/** Batch cards shown while a scan runs. */
+function trwatch_batch_cards(array $pages) {
+    $cards = '';
+    $found = 0;
+    foreach ($pages as $url => $p) {
+        if ($p['error']) $cards .= trwatch_error_card($url, $p['error']);
+        $strings = trwatch_filter_skipped($p['strings']);
+        if (!$strings) continue;
+        $found += count($strings);
+        $cards .= trwatch_card($url, $strings);
+    }
+    return [$cards, $found];
+}
+
+function trwatch_saved_scan() {
+    $scan = get_option(TRWATCH_OPT_RESULT);
+    return is_array($scan) && !empty($scan['pages']) ? $scan : null;
+}
+
+/** Results of one language: sitewide group + per page. Returns [html, issues]. */
+function trwatch_language_html(array $pages) {
+    foreach ($pages as &$p) $p['strings'] = trwatch_filter_skipped($p['strings']);
+    unset($p);
+    $ok = array_filter($pages, fn($p) => !$p['error']);
+    $total = count($ok);
+
+    // strings on more than half the pages are header/footer — show once
+    $count = [];
+    $first = [];
+    foreach ($ok as $p) foreach ($p['strings'] as $s) {
+        $count[$s['text']] = ($count[$s['text']] ?? 0) + 1;
+        $first[$s['text']] ??= $s;
+    }
+    $sitewide = array_keys(array_filter($count, fn($c) => $total > 4 && $c > $total / 2));
+
+    $issues = 0;
+    $out = '';
+    if ($sitewide) {
+        $url = array_key_first($ok);
+        $issues += count($sitewide);
+        $out .= '<h3>' . esc_html__('Sitewide (header, footer, popup…)', 'translation-watchdog-for-translatepress') . '</h3>'
+              . trwatch_card($url, array_map(fn($t) => ['text' => $t, 'where' => 'every page', 'status' => $first[$t]['status'] ?? 'unknown'], $sitewide),
+                  /* translators: %s: page path */
+                  sprintf(__('Shown on most pages — fix once, e.g. on %s', 'translation-watchdog-for-translatepress'), wp_make_link_relative($url)));
+    }
+    $body = '';
+    foreach ($ok as $url => $p) {
+        $strings = array_values(array_filter($p['strings'], fn($s) => !in_array($s['text'], $sitewide, true)));
+        if (!$strings) continue;
+        $issues += count($strings);
+        $body .= trwatch_card($url, $strings);
+    }
+    if ($body) $out .= '<h3>' . esc_html__('Per page', 'translation-watchdog-for-translatepress') . '</h3>' . $body;
+    return [$out, $issues];
+}
+
+function trwatch_results_html() {
+    $scan = trwatch_saved_scan();
+    if (!$scan) return '<p>' . esc_html__('No scan yet.', 'translation-watchdog-for-translatepress') . '</p>';
+
+    $names = trwatch_target_languages();
+    $byLang = [];
+    $errors = [];
+    foreach ($scan['pages'] as $url => $p) {
+        $p += ['lang' => 'en_GB', 'error' => null, 'strings' => []];   // scans from older versions
+        if ($p['error']) $errors[$url] = $p['error'];
+        $byLang[$p['lang']][$url] = $p;
+    }
+
+    $issues = 0;
+    $out = '';
+    foreach ($byLang as $lang => $pages) {
+        [$html, $n] = trwatch_language_html($pages);
+        $issues += $n;
+        if (count($byLang) > 1) $out .= '<h2>' . esc_html($names[$lang] ?? $lang) . '</h2>';
+        $out .= $html;
+    }
+
+    if ($errors) {
+        /* translators: %d: number of pages */
+        $retry = sprintf(_n('Retry this %d', 'Retry these %d', count($errors), 'translation-watchdog-for-translatepress'), count($errors));
+        $out .= '<h2>' . esc_html__('Could not fetch', 'translation-watchdog-for-translatepress')
+              . ' <button type="button" id="trwatch-retry" class="button">' . esc_html($retry) . '</button></h2><ul class="trwatch-failed">';
+        foreach ($errors as $u => $e) {
+            $out .= '<li data-url="' . esc_attr($u) . '"><a href="' . esc_url($u) . '" target="_blank" rel="noopener">'
+                  . esc_html(wp_make_link_relative($u)) . '</a> — ' . esc_html($e) . '</li>';
+        }
+        $out .= '</ul>';
+    }
+    if (!$issues && !$errors) {
+        $out .= '<div class="notice notice-success inline"><p>' . esc_html__('No untranslated text found on any page.', 'translation-watchdog-for-translatepress') . '</p></div>';
+    }
+
+    $total = count($scan['pages']);
+    $time = wp_date(get_option('date_format') . ' ' . get_option('time_format'), $scan['time']);
+    return '<p class="trwatch-meta">' . esc_html__('Last scan:', 'translation-watchdog-for-translatepress') . ' <strong>' . esc_html($time) . '</strong> · '
+         . '<strong class="trwatch-total">' . (int) $issues . '</strong> ' . esc_html__('possible issues', 'translation-watchdog-for-translatepress') . ' · '
+         /* translators: %d: number of pages */
+         . esc_html(sprintf(_n('%d page checked', '%d pages checked', $total, 'translation-watchdog-for-translatepress'), $total)) . '</p>' . $out;
+}
+
+function trwatch_skipped_html() {
+    $skipped = trwatch_skipped();
+    if (!$skipped) return '<p class="description">' . esc_html__('Nothing skipped yet.', 'translation-watchdog-for-translatepress') . '</p>';
+    $h = '<ul class="trwatch-skiplist">';
+    foreach ($skipped as $t) {
+        $h .= '<li data-text="' . esc_attr($t) . '"><span class="trwatch-text">' . esc_html($t) . '</span>'
+            . '<button type="button" class="button-link trwatch-unskip">' . esc_html__('Undo', 'translation-watchdog-for-translatepress') . '</button></li>';
+    }
+    return $h . '</ul>';
+}
+
+/* ---------- AJAX ---------- */
+
+function trwatch_ajax_guard() {
+    check_ajax_referer('trwatch');
+    if (!current_user_can('manage_options')) wp_send_json_error(__('Not allowed.', 'translation-watchdog-for-translatepress'), 403);
+}
+
+/** Each scan gets its own state, so two open tabs don't mix their results. */
+function trwatch_run_key($scanId) {
+    return 'trwatch_run_' . $scanId;
+}
+
+function trwatch_posted_scan_id() {
+    // phpcs:ignore WordPress.Security.NonceVerification.Missing -- every caller runs trwatch_ajax_guard() first
+    return isset($_POST['scan']) ? sanitize_key(wp_unslash($_POST['scan'])) : '';
+}
+
+add_action('wp_ajax_trwatch_start', function () {
+    trwatch_ajax_guard();
+    $langs = trwatch_languages();
+    if (!$langs) wp_send_json_error(__('TranslatePress has no translation language set up.', 'translation-watchdog-for-translatepress'));
+    $sources = trwatch_source_urls();
+    $scanId = strtolower(wp_generate_password(12, false));
+    set_transient(trwatch_run_key($scanId), ['langs' => $langs, 'sources' => $sources, 'pages' => []], HOUR_IN_SECONDS);
+    wp_send_json_success(['scan' => $scanId, 'total' => count($sources) * count($langs)]);
+});
+
+add_action('wp_ajax_trwatch_batch', function () {
+    trwatch_ajax_guard();
+    $scanId = trwatch_posted_scan_id();
+    $run = $scanId ? get_transient(trwatch_run_key($scanId)) : false;
+    if (!$run) wp_send_json_error(__('This scan has expired — click Refresh.', 'translation-watchdog-for-translatepress'));
+
+    // offset counts source pages; the screen shows translated pages (sources × languages)
+    $offset = isset($_POST['offset']) ? absint($_POST['offset']) : 0;
+    $per = trwatch_sources_per_batch(count($run['langs']));
+    $batch = trwatch_scan_pairs(trwatch_pairs_for(array_slice($run['sources'], $offset, $per), $run['langs']), trwatch_allowlist());
+    $run['pages'] = array_merge($run['pages'], $batch);
+    [$cards, $found] = trwatch_batch_cards($batch);
+
+    $next = $offset + $per;
+    if ($next >= count($run['sources'])) {
+        update_option(TRWATCH_OPT_RESULT, ['langs' => $run['langs'], 'time' => time(), 'pages' => $run['pages']], false);
+        delete_transient(trwatch_run_key($scanId));
+        wp_send_json_success(['done' => true, 'html' => trwatch_kses(trwatch_results_html())]);
+    }
+    set_transient(trwatch_run_key($scanId), $run, HOUR_IN_SECONDS);
+    wp_send_json_success([
+        'done'  => false,
+        'next'  => $next,
+        'shown' => $next * count($run['langs']),
+        'cards' => trwatch_kses($cards),
+        'found' => $found,
+    ]);
+});
+
+// rescan only pages that failed in the saved result; merges into it
+add_action('wp_ajax_trwatch_retry', function () {
+    trwatch_ajax_guard();
+    $scan = trwatch_saved_scan();
+    if (!$scan) wp_send_json_error(__('No scan saved.', 'translation-watchdog-for-translatepress'));
+
+    // validated against the saved failed list instead of sanitized — sanitizing would alter encoded URLs
+    $posted = isset($_POST['urls']) && is_array($_POST['urls']) ? array_filter(wp_unslash($_POST['urls']), 'is_string') : [];
+    $pairs = [];
+    foreach (array_slice(array_values(array_unique($posted)), 0, trwatch_sources_per_batch(1)) as $u) {
+        $p = $scan['pages'][$u] ?? null;
+        if (!$p || empty($p['error']) || empty($p['source']) || empty($p['lang'])) continue;
+        $pairs[] = ['source' => $p['source'], 'lang' => $p['lang'], 'target' => $u];
+    }
+
+    $fixed = 0;
+    foreach (trwatch_scan_pairs($pairs, trwatch_allowlist()) as $u => $p) {
+        $scan['pages'][$u] = $p;
+        if (!$p['error']) $fixed++;
+    }
+    update_option(TRWATCH_OPT_RESULT, $scan, false);
+    wp_send_json_success(['fixed' => $fixed]);
+});
+
+add_action('wp_ajax_trwatch_results', function () {
+    trwatch_ajax_guard();
+    wp_send_json_success(['html' => trwatch_kses(trwatch_results_html())]);
+});
+
+/** Every string the saved scan (and the scan in progress) found — the only values Skip accepts. */
+function trwatch_known_texts($scanId) {
+    $sets = [];
+    $saved = trwatch_saved_scan();
+    if ($saved) $sets[] = $saved['pages'];
+    $run = $scanId ? get_transient(trwatch_run_key($scanId)) : false;
+    if ($run) $sets[] = $run['pages'];
+    $texts = [];
+    foreach ($sets as $pages) foreach ($pages as $p) foreach (($p['strings'] ?? []) as $s) $texts[$s['text']] = true;
+    return $texts;
+}
+
+add_action('wp_ajax_trwatch_skip', function () {
+    trwatch_ajax_guard();
+    // validated against known values instead of sanitized — the string must match the page text exactly
+    $text = isset($_POST['text']) && is_string($_POST['text']) ? wp_unslash($_POST['text']) : '';
+    $undo = isset($_POST['undo']) && $_POST['undo'] === '1';
+    $skipped = trwatch_skipped();
+
+    if ($undo) {
+        if (!in_array($text, $skipped, true)) wp_send_json_error(__('Not in the skipped list.', 'translation-watchdog-for-translatepress'));
+        $skipped = array_values(array_diff($skipped, [$text]));
+    } else {
+        if (!isset(trwatch_known_texts(trwatch_posted_scan_id())[$text])) wp_send_json_error(__('Unknown string — rescan and try again.', 'translation-watchdog-for-translatepress'));
+        if (!in_array($text, $skipped, true)) $skipped[] = $text;
+    }
+    update_option(TRWATCH_OPT_SKIP, $skipped, false);
+    wp_send_json_success(['html' => trwatch_kses(trwatch_skipped_html()), 'count' => count($skipped)]);
+});
+
+/* ---------- screen ---------- */
+
+function trwatch_render() {
+    $header = defined('TRP_PLUGIN_DIR') ? TRP_PLUGIN_DIR . 'partials/settings-header.php' : '';
+    $targets = trwatch_target_languages();
+    $langs = trwatch_languages();
+    $names = implode(', ', array_map(fn($l) => $targets[$l] ?? $l, $langs));
+    ?>
+    <div id="trp-settings-page" class="wrap">
+        <?php
+        if ($header && file_exists($header)) require_once $header;
+        do_action('trp_settings_navigation_tabs');
+        ?>
+        <div class="trwatch-wrap">
+            <?php // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only flag after the settings redirect
+            if (!empty($_GET['trwatch-saved'])) : ?>
+                <div class="notice notice-success is-dismissible"><p><?php esc_html_e('Settings saved — click Refresh to apply them.', 'translation-watchdog-for-translatepress'); ?></p></div>
+            <?php endif; ?>
+
+            <h1><?php esc_html_e('Translation Watchdog', 'translation-watchdog-for-translatepress'); ?>
+                <button id="trwatch-refresh" type="button" class="button button-primary" <?php disabled(!$targets); ?>><?php esc_html_e('Refresh', 'translation-watchdog-for-translatepress'); ?></button></h1>
+            <p><?php
+                /* translators: %s: language names */
+                echo esc_html(sprintf(__('Compares every public page with its %s version, as a logged-out visitor sees them, and lists text that is still identical — text that was never translated. Names and terms you keep on purpose can be hidden with Skip.', 'translation-watchdog-for-translatepress'), $names));
+            ?></p>
+            <div id="trwatch-progress" hidden><progress max="100" value="0"></progress> <span></span></div>
+            <div id="trwatch-results"><?php echo trwatch_kses(trwatch_results_html()); ?></div>
+
+            <details class="trwatch-box"><summary><?php esc_html_e('Skipped strings', 'translation-watchdog-for-translatepress'); ?> (<span id="trwatch-skipcount"><?php echo (int) count(trwatch_skipped()); ?></span>)</summary>
+                <div id="trwatch-skipped"><?php echo trwatch_kses(trwatch_skipped_html()); ?></div>
+            </details>
+            <details class="trwatch-box"><summary><?php esc_html_e('Settings', 'translation-watchdog-for-translatepress'); ?></summary>
+                <form method="post" action="<?php echo esc_url(trwatch_screen_url()); ?>">
+                    <?php wp_nonce_field('trwatch_settings'); ?>
+                    <?php if (count($targets) > 1) : ?>
+                        <fieldset><p><strong><?php esc_html_e('Languages to check', 'translation-watchdog-for-translatepress'); ?></strong></p>
+                            <?php foreach ($targets as $code => $name) : ?>
+                                <label style="margin-right:16px"><input type="checkbox" name="trwatch_langs[]" value="<?php echo esc_attr($code); ?>" <?php checked(in_array($code, $langs, true)); ?>> <?php echo esc_html($name); ?></label>
+                            <?php endforeach; ?>
+                        </fieldset>
+                    <?php endif; ?>
+                    <p><label for="trwatch-allow"><strong><?php esc_html_e('Allowlist', 'translation-watchdog-for-translatepress'); ?></strong> —
+                        <?php esc_html_e('words or names that stay the same in every language (brands, product names), one per line', 'translation-watchdog-for-translatepress'); ?></label><br>
+                        <textarea id="trwatch-allow" name="trwatch_allow" rows="8" cols="50"><?php echo esc_textarea(implode("\n", trwatch_allowlist())); ?></textarea></p>
+                    <p><button class="button" name="trwatch_save" value="1"><?php esc_html_e('Save settings', 'translation-watchdog-for-translatepress'); ?></button></p>
+                </form>
+            </details>
+        </div>
+    </div>
+    <?php
+}

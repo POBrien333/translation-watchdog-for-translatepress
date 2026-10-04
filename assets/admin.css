@@ -1,0 +1,21 @@
+.trwatch-wrap{max-width:1100px;margin-top:20px}
+.trwatch-wrap h1{display:flex;gap:12px;align-items:center}
+#trwatch-progress progress{width:300px;vertical-align:middle}
+.trwatch-meta{font-size:14px}
+.trwatch-page{background:#fff;border:1px solid #dcdcde;border-radius:4px;margin:0 0 12px}
+.trwatch-err .trwatch-head{color:#b32d2e;border:0}
+.trwatch-head{display:flex;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid #f0f0f1;font-weight:600}
+.trwatch-head a:first-child{flex:1;word-break:break-all}
+.trwatch-n{background:#d63638;color:#fff;border-radius:10px;padding:0 8px;font-size:12px}
+.trwatch-page ul{margin:0;padding:8px 14px}
+.trwatch-page li,.trwatch-skiplist li{display:flex;gap:10px;align-items:baseline;margin:4px 0}
+.trwatch-where{flex:0 0 80px;color:#787c82;font-size:11px;text-transform:uppercase}
+.trwatch-text{flex:1}
+.trwatch-badge{flex:0 0 auto;border-radius:3px;padding:0 6px;font-size:11px;line-height:18px;white-space:nowrap;cursor:help}
+.trwatch-badge-missing{background:#fcf0f1;color:#b32d2e}
+.trwatch-badge-not_shown{background:#fcf9e8;color:#8a6100}
+.trwatch-badge-unknown{background:#f0f0f1;color:#50575e}
+.trwatch-wrap h3{margin:20px 0 10px}
+.trwatch-skip,.trwatch-unskip{flex:0 0 auto;font-size:12px}
+.trwatch-box{margin-top:24px;background:#fff;border:1px solid #dcdcde;border-radius:4px;padding:10px 14px}
+.trwatch-box summary{cursor:pointer;font-weight:600}

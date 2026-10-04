@@ -1,0 +1,14 @@
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+
+# not shipped in the release zip (git archive)
+/.github          export-ignore
+/.gitattributes   export-ignore
+/.gitignore       export-ignore
+/composer.json    export-ignore
+/composer.lock    export-ignore
+/phpcs.xml.dist   export-ignore
+/CHANGELOG.md     export-ignore
+/README.md        export-ignore
+/languages/.gitkeep export-ignore

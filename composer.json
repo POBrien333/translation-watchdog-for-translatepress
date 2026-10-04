@@ -1,0 +1,22 @@
+{
+    "name": "patrickobrien/translation-watchdog-for-translatepress",
+    "description": "Finds text that was never translated on a TranslatePress site.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": ">=8.0"
+    },
+    "require-dev": {
+        "wp-coding-standards/wpcs": "^3.1",
+        "php-parallel-lint/php-parallel-lint": "^1.4"
+    },
+    "scripts": {
+        "lint": "parallel-lint --exclude vendor .",
+        "phpcs": "phpcs"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    }
+}
