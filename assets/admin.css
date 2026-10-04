@@ -25,8 +25,8 @@
 .trwatch-box summary{cursor:pointer;font-weight:600}
 .trwatch-page .trwatch-text .trwatch-el{display:block;margin-top:1px;color:#8c8f94;font-size:11px;cursor:help}
 .trwatch-page .trwatch-text .trwatch-el code{background:none;padding:0;font-size:11px;color:#8c8f94}
-.trwatch-recheck{flex:0 0 auto;color:#787c82;text-decoration:none;line-height:1}
-.trwatch-recheck:hover{color:#2271b1}
+.wp-core-ui .trwatch-recheck,.wp-core-ui .trwatch-recheck .dashicons{flex:0 0 auto;color:#787c82;text-decoration:none;box-shadow:none;line-height:1}
+.wp-core-ui .trwatch-recheck:hover,.wp-core-ui .trwatch-recheck:hover .dashicons{color:#2271b1;text-decoration:none}
 .trwatch-recheck.is-busy .dashicons{animation:trwatch-spin 1s linear infinite}
 @keyframes trwatch-spin{to{transform:rotate(360deg)}}
 .trwatch-ok .trwatch-head{border:0}

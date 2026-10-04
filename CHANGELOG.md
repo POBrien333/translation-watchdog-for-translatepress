@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.4
+
+- Re-check icon: no underline (WordPress underlines link-style buttons, and the line spun with the icon).
+
 ## 0.3.3
 
 - Re-check button (↻) next to each page link: checks that one page again and replaces its card — "✓ Nothing left to fix" when done. Also on pages that could not be fetched. Updates the saved result.
