@@ -62,6 +62,8 @@ function trwatch_is_local() {
  * @return array url => ['html' => string|null, 'error' => string|null]
  */
 function trwatch_fetch(array $urls) {
+    // a batch waits up to TRWATCH_TIMEOUT per request (more for redirects); shared hosts often stop scripts at 30 s
+    // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged
     if (function_exists('set_time_limit')) set_time_limit(TRWATCH_TIMEOUT * 3);
     /** Filters whether SSL certificates are verified when fetching your own pages. */
     $verify = (bool) apply_filters('trwatch_sslverify', !trwatch_is_local());

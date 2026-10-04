@@ -110,7 +110,7 @@ function trwatch_allowed_html() {
         'strong' => ['class' => true],
         'span'   => ['class' => true, 'title' => true],
         'ul'     => ['class' => true],
-        'li'     => ['data-text' => true, 'data-url' => true],
+        'li'     => ['data-hash' => true, 'data-url' => true],
         'a'      => ['href' => true, 'target' => true, 'rel' => true, 'class' => true],
         'button' => ['type' => true, 'class' => true, 'id' => true, 'title' => true],
     ];
@@ -154,7 +154,7 @@ function trwatch_card($url, $strings, $label = null) {
        . '<a class="button button-small" href="' . esc_url($edit) . '" target="_blank" rel="noopener">' . esc_html__('Open in translator', 'translation-watchdog-for-translatepress') . '</a>'
        . '<span class="trwatch-n">' . (int) count($strings) . '</span></div><ul>';
     foreach ($strings as $s) {
-        $h .= '<li data-text="' . esc_attr($s['text']) . '">'
+        $h .= '<li data-hash="' . esc_attr(md5($s['text'])) . '">'
             . trwatch_status_badge($s['status'] ?? 'unknown')
             . '<span class="trwatch-where">' . esc_html(trwatch_where_label($s['where'])) . '</span>'
             . '<span class="trwatch-text">' . esc_html($s['text']) . '</span>'
@@ -275,7 +275,7 @@ function trwatch_skipped_html() {
     if (!$skipped) return '<p class="description">' . esc_html__('Nothing skipped yet.', 'translation-watchdog-for-translatepress') . '</p>';
     $h = '<ul class="trwatch-skiplist">';
     foreach ($skipped as $t) {
-        $h .= '<li data-text="' . esc_attr($t) . '"><span class="trwatch-text">' . esc_html($t) . '</span>'
+        $h .= '<li data-hash="' . esc_attr(md5($t)) . '"><span class="trwatch-text">' . esc_html($t) . '</span>'
             . '<button type="button" class="button-link trwatch-unskip">' . esc_html__('Undo', 'translation-watchdog-for-translatepress') . '</button></li>';
     }
     return $h . '</ul>';
@@ -283,8 +283,7 @@ function trwatch_skipped_html() {
 
 /* ---------- AJAX ---------- */
 
-function trwatch_ajax_guard() {
-    check_ajax_referer('trwatch');
+function trwatch_require_cap() {
     if (!current_user_can('manage_options')) wp_send_json_error(__('Not allowed.', 'translation-watchdog-for-translatepress'), 403);
 }
 
@@ -294,12 +293,13 @@ function trwatch_run_key($scanId) {
 }
 
 function trwatch_posted_scan_id() {
-    // phpcs:ignore WordPress.Security.NonceVerification.Missing -- every caller runs trwatch_ajax_guard() first
+    // phpcs:ignore WordPress.Security.NonceVerification.Missing -- every caller runs check_ajax_referer() first
     return isset($_POST['scan']) ? sanitize_key(wp_unslash($_POST['scan'])) : '';
 }
 
 add_action('wp_ajax_trwatch_start', function () {
-    trwatch_ajax_guard();
+    check_ajax_referer('trwatch');
+    trwatch_require_cap();
     $langs = trwatch_languages();
     if (!$langs) wp_send_json_error(__('TranslatePress has no translation language set up.', 'translation-watchdog-for-translatepress'));
     $sources = trwatch_source_urls();
@@ -309,7 +309,8 @@ add_action('wp_ajax_trwatch_start', function () {
 });
 
 add_action('wp_ajax_trwatch_batch', function () {
-    trwatch_ajax_guard();
+    check_ajax_referer('trwatch');
+    trwatch_require_cap();
     $scanId = trwatch_posted_scan_id();
     $run = $scanId ? get_transient(trwatch_run_key($scanId)) : false;
     if (!$run) wp_send_json_error(__('This scan has expired — click Refresh.', 'translation-watchdog-for-translatepress'));
@@ -339,12 +340,13 @@ add_action('wp_ajax_trwatch_batch', function () {
 
 // rescan only pages that failed in the saved result; merges into it
 add_action('wp_ajax_trwatch_retry', function () {
-    trwatch_ajax_guard();
+    check_ajax_referer('trwatch');
+    trwatch_require_cap();
     $scan = trwatch_saved_scan();
     if (!$scan) wp_send_json_error(__('No scan saved.', 'translation-watchdog-for-translatepress'));
 
-    // validated against the saved failed list instead of sanitized — sanitizing would alter encoded URLs
-    $posted = isset($_POST['urls']) && is_array($_POST['urls']) ? array_filter(wp_unslash($_POST['urls']), 'is_string') : [];
+    // sanitized as URLs, then only accepted if they are in the saved failed list
+    $posted = isset($_POST['urls']) && is_array($_POST['urls']) ? array_filter(map_deep(wp_unslash($_POST['urls']), 'esc_url_raw'), 'is_string') : [];
     $pairs = [];
     foreach (array_slice(array_values(array_unique($posted)), 0, trwatch_sources_per_batch(1)) as $u) {
         $p = $scan['pages'][$u] ?? null;
@@ -362,11 +364,15 @@ add_action('wp_ajax_trwatch_retry', function () {
 });
 
 add_action('wp_ajax_trwatch_results', function () {
-    trwatch_ajax_guard();
+    check_ajax_referer('trwatch');
+    trwatch_require_cap();
     wp_send_json_success(['html' => trwatch_kses(trwatch_results_html())]);
 });
 
-/** Every string the saved scan (and the scan in progress) found — the only values Skip accepts. */
+/**
+ * Every string the saved scan (and the scan in progress) found, keyed by md5 — the only values Skip accepts.
+ * The screen sends the hash, not the text, so the exact string never has to survive sanitizing.
+ */
 function trwatch_known_texts($scanId) {
     $sets = [];
     $saved = trwatch_saved_scan();
@@ -374,22 +380,24 @@ function trwatch_known_texts($scanId) {
     $run = $scanId ? get_transient(trwatch_run_key($scanId)) : false;
     if ($run) $sets[] = $run['pages'];
     $texts = [];
-    foreach ($sets as $pages) foreach ($pages as $p) foreach (($p['strings'] ?? []) as $s) $texts[$s['text']] = true;
+    foreach ($sets as $pages) foreach ($pages as $p) foreach (($p['strings'] ?? []) as $s) $texts[md5($s['text'])] = $s['text'];
     return $texts;
 }
 
 add_action('wp_ajax_trwatch_skip', function () {
-    trwatch_ajax_guard();
-    // validated against known values instead of sanitized — the string must match the page text exactly
-    $text = isset($_POST['text']) && is_string($_POST['text']) ? wp_unslash($_POST['text']) : '';
-    $undo = isset($_POST['undo']) && $_POST['undo'] === '1';
+    check_ajax_referer('trwatch');
+    trwatch_require_cap();
+    $hash = isset($_POST['hash']) ? sanitize_key(wp_unslash($_POST['hash'])) : '';
+    $undo = isset($_POST['undo']) && '1' === sanitize_key(wp_unslash($_POST['undo']));
     $skipped = trwatch_skipped();
 
     if ($undo) {
-        if (!in_array($text, $skipped, true)) wp_send_json_error(__('Not in the skipped list.', 'translation-watchdog-for-translatepress'));
-        $skipped = array_values(array_diff($skipped, [$text]));
+        $keep = array_values(array_filter($skipped, fn($t) => md5($t) !== $hash));
+        if (count($keep) === count($skipped)) wp_send_json_error(__('Not in the skipped list.', 'translation-watchdog-for-translatepress'));
+        $skipped = $keep;
     } else {
-        if (!isset(trwatch_known_texts(trwatch_posted_scan_id())[$text])) wp_send_json_error(__('Unknown string — rescan and try again.', 'translation-watchdog-for-translatepress'));
+        $text = trwatch_known_texts(trwatch_posted_scan_id())[$hash] ?? null;
+        if ($text === null) wp_send_json_error(__('Unknown string — rescan and try again.', 'translation-watchdog-for-translatepress'));
         if (!in_array($text, $skipped, true)) $skipped[] = $text;
     }
     update_option(TRWATCH_OPT_SKIP, $skipped, false);
@@ -407,6 +415,7 @@ function trwatch_render() {
     <div id="trp-settings-page" class="wrap">
         <?php
         if ($header && file_exists($header)) require_once $header;
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- TranslatePress' own hook, renders its tab bar
         do_action('trp_settings_navigation_tabs');
         ?>
         <div class="trwatch-wrap">
@@ -422,10 +431,10 @@ function trwatch_render() {
                 echo esc_html(sprintf(__('Compares every public page with its %s version, as a logged-out visitor sees them, and lists text that is still identical — text that was never translated. Names and terms you keep on purpose can be hidden with Skip.', 'translation-watchdog-for-translatepress'), $names));
             ?></p>
             <div id="trwatch-progress" hidden><progress max="100" value="0"></progress> <span></span></div>
-            <div id="trwatch-results"><?php echo trwatch_kses(trwatch_results_html()); ?></div>
+            <div id="trwatch-results"><?php echo wp_kses(trwatch_results_html(), trwatch_allowed_html()); ?></div>
 
             <details class="trwatch-box"><summary><?php esc_html_e('Skipped strings', 'translation-watchdog-for-translatepress'); ?> (<span id="trwatch-skipcount"><?php echo (int) count(trwatch_skipped()); ?></span>)</summary>
-                <div id="trwatch-skipped"><?php echo trwatch_kses(trwatch_skipped_html()); ?></div>
+                <div id="trwatch-skipped"><?php echo wp_kses(trwatch_skipped_html(), trwatch_allowed_html()); ?></div>
             </details>
             <details class="trwatch-box"><summary><?php esc_html_e('Settings', 'translation-watchdog-for-translatepress'); ?></summary>
                 <form method="post" action="<?php echo esc_url(trwatch_screen_url()); ?>">

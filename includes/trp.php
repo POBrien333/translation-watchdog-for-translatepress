@@ -103,7 +103,7 @@ function trwatch_classify(array $texts, $lang) {
     foreach ($tables as $table) {
         foreach (array_chunk(array_keys($lookup), 100) as $chunk) {
             $in = implode(',', array_fill(0, count($chunk), '%s'));
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders -- table name validated above, values prepared
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from TranslatePress, validated to [A-Za-z0-9_] and confirmed to exist; values prepared
             $found = $wpdb->get_results($wpdb->prepare("SELECT original, translated, status FROM `$table` WHERE original IN ($in)", $chunk), ARRAY_A);
             foreach ((array) $found as $row) $rows[] = $row;
         }

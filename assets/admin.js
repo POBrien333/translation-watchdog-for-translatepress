@@ -73,16 +73,16 @@
         document.getElementById('trwatch-skipcount').textContent = d.count;
     }
 
-    async function skip(text) {
+    async function skip(hash) {
         const removed = [];
-        results.querySelectorAll('li[data-text]').forEach(li => {
-            if (li.dataset.text !== text) return;
+        results.querySelectorAll('li[data-hash]').forEach(li => {
+            if (li.dataset.hash !== hash) return;
             removed.push([li, li.parentNode, li.nextSibling]);
             li.remove();
         });
         refreshCounts();
         try {
-            const r = await post('trwatch_skip', {text, scan: currentScan, undo: '0'});
+            const r = await post('trwatch_skip', {hash, scan: currentScan, undo: '0'});
             if (!r.success) fail(r);
             showSkipped(r.data);
         } catch (e) {
@@ -92,9 +92,9 @@
         }
     }
 
-    async function unskip(text) {
+    async function unskip(hash) {
         try {
-            const r = await post('trwatch_skip', {text, undo: '1'});
+            const r = await post('trwatch_skip', {hash, undo: '1'});
             if (!r.success) fail(r);
             showSkipped(r.data);   // the string shows again on the next scan
         } catch (e) { alert(i18n.undoFailed + ' ' + e.message); }
@@ -123,8 +123,8 @@
     document.addEventListener('click', e => {
         if (e.target.id === 'trwatch-retry') return retry(e.target);
         const s = e.target.closest('.trwatch-skip'), u = e.target.closest('.trwatch-unskip');
-        if (s) skip(s.closest('li').dataset.text);
-        if (u) unskip(u.closest('li').dataset.text);
+        if (s) skip(s.closest('li').dataset.hash);
+        if (u) unskip(u.closest('li').dataset.hash);
     });
 
     btn.addEventListener('click', scan);

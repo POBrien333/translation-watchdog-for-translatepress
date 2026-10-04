@@ -32,6 +32,8 @@ require_once __DIR__ . '/includes/admin.php';
 require_once __DIR__ . '/includes/updater.php';
 
 add_action('plugins_loaded', function () {
+    // distributed via GitHub, not wordpress.org, so translations are not loaded automatically
+    // phpcs:ignore PluginCheck.CodeAnalysis.DiscouragedFunctions.load_plugin_textdomainFound
     load_plugin_textdomain('translation-watchdog-for-translatepress', false, dirname(plugin_basename(__FILE__)) . '/languages');
 });
 

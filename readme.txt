@@ -2,7 +2,7 @@
 Contributors: patrickobrien
 Tags: translatepress, translation, multilingual, quality, untranslated
 Requires at least: 6.5
-Tested up to: 6.8
+Tested up to: 7.1
 Requires PHP: 8.0
 Stable tag: 0.2.0
 License: GPLv2 or later
