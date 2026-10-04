@@ -39,4 +39,3 @@ jobs:
         with:
           files: translation-watchdog-for-translatepress.zip
           generate_release_notes: true
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') }}
