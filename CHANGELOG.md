@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.6
+
+- The Watchdog content is indented like the TranslatePress header and tabs.
+- No line under the re-check icon (any underline, border or shadow switched off); keyboard focus shows an outline instead.
+
 ## 0.3.5
 
 - Plugin icon (`assets/icon.svg`, animated): shown in the README and on Dashboard → Updates.

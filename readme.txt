@@ -4,7 +4,7 @@ Tags: translatepress, translation, multilingual, quality, untranslated
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.3.5
+Stable tag: 0.3.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -26,6 +26,9 @@ Adds a **Watchdog** tab to the TranslatePress settings. It compares every public
 3. Open Settings → TranslatePress → Watchdog.
 
 == Changelog ==
+
+= 0.3.6 =
+* Content aligned with the TranslatePress header and tabs; no line under the re-check icon.
 
 = 0.3.5 =
 * Plugin icon, shown on Dashboard → Updates.
