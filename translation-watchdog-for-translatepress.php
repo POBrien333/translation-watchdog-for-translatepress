@@ -11,6 +11,7 @@
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       translation-watchdog-for-translatepress
  * Domain Path:       /languages
+ * Update URI:        https://github.com/POBrien333/translation-watchdog-for-translatepress
  */
 
 if (!defined('ABSPATH')) exit;
