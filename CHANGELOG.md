@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- The element under a finding is only shown when it has a class or ID (bare tags such as `strong` or `a` are useless for ignoring and read like part of the text), and is prefixed with "in".
+
 ## 0.3.0
 
 - Each finding shows the element it is in (e.g. `button.breakdance-menu-close-button`).

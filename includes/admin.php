@@ -122,6 +122,7 @@ function trwatch_allowed_html() {
         'p'      => ['class' => true],
         'strong' => ['class' => true],
         'span'   => ['class' => true, 'title' => true],
+        'code'   => [],
         'ul'     => ['class' => true],
         'li'     => ['data-hash' => true, 'data-url' => true],
         'a'      => ['href' => true, 'target' => true, 'rel' => true, 'class' => true],
@@ -171,7 +172,7 @@ function trwatch_card($url, $strings, $label = null) {
             . trwatch_status_badge($s['status'] ?? 'unknown')
             . '<span class="trwatch-where">' . esc_html(trwatch_where_label($s['where'])) . '</span>'
             . '<span class="trwatch-text">' . esc_html($s['text'])
-            . (!empty($s['el']) ? '<span class="trwatch-el" title="' . esc_attr__('The element this text is in — add it under Settings → Ignore elements to stop checking it', 'translation-watchdog-for-translatepress') . '">' . esc_html($s['el']) . '</span>' : '')
+            . (!empty($s['el']) ? '<span class="trwatch-el" title="' . esc_attr__('The element this text is in — add it under Settings → Ignore elements to stop checking it', 'translation-watchdog-for-translatepress') . '">' . esc_html__('in', 'translation-watchdog-for-translatepress') . ' <code>' . esc_html($s['el']) . '</code></span>' : '')
             . '</span>'
             . '<button type="button" class="button-link trwatch-skip" title="' . esc_attr__('Not an issue — hide this string from now on', 'translation-watchdog-for-translatepress') . '">'
             . esc_html__('Skip', 'translation-watchdog-for-translatepress') . '</button></li>';

@@ -129,7 +129,8 @@ function trwatch_describe($el) {
     if (!$el instanceof DOMElement) return '';
     $class = preg_split('/\s+/', trim($el->getAttribute('class')))[0] ?? '';
     $id = $el->getAttribute('id');
-    return $el->nodeName . ($class !== '' ? '.' . $class : ($id !== '' ? '#' . $id : ''));
+    if ($class === '' && $id === '') return '';   // a bare tag (strong, a, p) is no use for ignoring
+    return $el->nodeName . ($class !== '' ? '.' . $class : '#' . $id);
 }
 
 /* ---------- extraction & comparison ---------- */
