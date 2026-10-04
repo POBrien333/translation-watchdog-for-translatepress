@@ -59,7 +59,7 @@
 
     function refreshCounts() {
         let total = 0;
-        results.querySelectorAll('.trwatch-page:not(.trwatch-err)').forEach(card => {
+        results.querySelectorAll('.trwatch-page:not(.trwatch-err):not(.trwatch-ok)').forEach(card => {
             const n = card.querySelectorAll('li').length;
             card.hidden = !n;   // hidden, not removed, so a failed skip can put rows back
             const badge = card.querySelector('.trwatch-n'); if (badge) badge.textContent = n;
@@ -120,8 +120,28 @@
         btn.disabled = false;
     }
 
+    // check one page again after fixing it in the translator
+    async function recheck(rbtn) {
+        const card = rbtn.closest('.trwatch-page');
+        if (!card || rbtn.classList.contains('is-busy')) return;
+        rbtn.classList.add('is-busy'); rbtn.disabled = true;
+        try {
+            const r = await post('trwatch_recheck', {url: card.dataset.url});
+            if (!r.success) fail(r);
+            const tmp = document.createElement('div');
+            tmp.innerHTML = r.data.html;
+            card.replaceWith(tmp.firstElementChild);
+            refreshCounts();
+        } catch (e) {
+            rbtn.classList.remove('is-busy'); rbtn.disabled = false;
+            alert(i18n.recheckFailed + ' ' + e.message);
+        }
+    }
+
     document.addEventListener('click', e => {
         if (e.target.id === 'trwatch-retry') return retry(e.target);
+        const rc = e.target.closest('.trwatch-recheck');
+        if (rc) return recheck(rc);
         const s = e.target.closest('.trwatch-skip'), u = e.target.closest('.trwatch-unskip');
         if (s) skip(s.closest('li').dataset.hash);
         if (u) unskip(u.closest('li').dataset.hash);

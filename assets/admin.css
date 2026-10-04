@@ -5,7 +5,9 @@
 .trwatch-page{background:#fff;border:1px solid #dcdcde;border-radius:4px;margin:0 0 12px}
 .trwatch-err .trwatch-head{color:#b32d2e;border:0}
 .trwatch-head{display:flex;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid #f0f0f1;font-weight:600}
-.trwatch-head a:first-child{flex:1;word-break:break-all}
+.trwatch-head a:first-child{flex:0 1 auto;word-break:break-all}
+.trwatch-head .button{margin-left:auto}
+.trwatch-err .trwatch-errmsg,.trwatch-ok .trwatch-okmsg{margin-left:auto}
 .trwatch-n{background:#d63638;color:#fff;border-radius:10px;padding:0 8px;font-size:12px}
 .trwatch-page ul{margin:0;padding:8px 14px}
 .trwatch-page li,.trwatch-skiplist li{display:flex;gap:10px;align-items:baseline;margin:0;padding:5px 0;border-bottom:1px solid #f3f3f4}
@@ -23,3 +25,10 @@
 .trwatch-box summary{cursor:pointer;font-weight:600}
 .trwatch-page .trwatch-text .trwatch-el{display:block;margin-top:1px;color:#8c8f94;font-size:11px;cursor:help}
 .trwatch-page .trwatch-text .trwatch-el code{background:none;padding:0;font-size:11px;color:#8c8f94}
+.trwatch-recheck{flex:0 0 auto;color:#787c82;text-decoration:none;line-height:1}
+.trwatch-recheck:hover{color:#2271b1}
+.trwatch-recheck.is-busy .dashicons{animation:trwatch-spin 1s linear infinite}
+@keyframes trwatch-spin{to{transform:rotate(360deg)}}
+.trwatch-ok .trwatch-head{border:0}
+.trwatch-okmsg{color:#00a32a;font-weight:600}
+.trwatch-errmsg{color:#b32d2e}

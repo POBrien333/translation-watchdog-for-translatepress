@@ -26,6 +26,7 @@ TranslatePress shows you a page at a time, so there is no quick way to see what'
 - Runs only when you open the tab or click **Refresh** — nothing in the background.
 - Results appear while the scan runs; requests are made in parallel.
 - Every finding links to the translated page and straight into the TranslatePress editor.
+- **Re-check** (↻) a single page after fixing it, without a full scan — work through the list page by page.
 - Header/footer/popup strings are grouped once under **Sitewide**.
 - **Skip** hides false positives, **Undo** brings them back; an allowlist ignores brand and product names.
 - **Ignore elements**: CSS selectors for whole components that should not be checked (hidden screen-reader text, a cookie banner…). Every finding shows the element it is in.

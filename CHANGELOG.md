@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+
+- Re-check button (↻) next to each page link: checks that one page again and replaces its card — "✓ Nothing left to fix" when done. Also on pages that could not be fetched. Updates the saved result.
+
 ## 0.3.2
 
 - No element label on image findings: page builders give every image the same class, so it adds nothing; the alt text identifies the image.
