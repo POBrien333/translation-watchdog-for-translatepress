@@ -21,3 +21,4 @@
 .trwatch-skip,.trwatch-unskip{flex:0 0 auto;font-size:12px}
 .trwatch-box{margin-top:24px;background:#fff;border:1px solid #dcdcde;border-radius:4px;padding:10px 14px}
 .trwatch-box summary{cursor:pointer;font-weight:600}
+.trwatch-el{display:block;color:#a7aaad;font-size:11px;font-family:Consolas,Monaco,monospace;cursor:help}

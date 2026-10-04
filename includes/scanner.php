@@ -94,9 +94,44 @@ function trwatch_fetch(array $urls) {
     return $out;
 }
 
+/* ---------- ignored elements ---------- */
+
+function trwatch_ignore_selectors() {
+    return array_values(array_filter(array_map('trim', explode("\n", (string) get_option(TRWATCH_OPT_IGNORE, '')))));
+}
+
+/**
+ * Translate a simple CSS selector into an XPath condition on an element.
+ * Supported: tag, .class, #id, [attr], [attr="value"] and combinations of them (button.close, div#menu.open).
+ *
+ * @return string|null null when the selector is not supported
+ */
+function trwatch_selector_to_xpath($selector) {
+    if (!preg_match('/^([a-z][a-z0-9-]*)?((?:[.#][A-Za-z_][\w-]*|\[[A-Za-z_][\w-]*(?:="[^"]*")?\])*)$/', trim($selector), $m)) return null;
+    if ($m[0] === '') return null;
+    $conds = [];
+    if (!empty($m[1])) $conds[] = 'self::' . $m[1];
+    preg_match_all('/([.#])([A-Za-z_][\w-]*)|\[([A-Za-z_][\w-]*)(?:="([^"]*)")?\]/', $m[2], $parts, PREG_SET_ORDER);
+    foreach ($parts as $p) {
+        if ($p[1] === '.') $conds[] = "contains(concat(' ', normalize-space(@class), ' '), ' {$p[2]} ')";
+        elseif ($p[1] === '#') $conds[] = "@id='{$p[2]}'";
+        elseif (isset($p[4])) $conds[] = "@{$p[3]}=\"{$p[4]}\"";
+        else $conds[] = "@{$p[3]}";
+    }
+    return implode(' and ', $conds);
+}
+
+/** The element a finding came from, as "tag.first-class" — what to enter under "Ignore elements". */
+function trwatch_describe($el) {
+    if (!$el instanceof DOMElement) return '';
+    $class = preg_split('/\s+/', trim($el->getAttribute('class')))[0] ?? '';
+    $id = $el->getAttribute('id');
+    return $el->nodeName . ($class !== '' ? '.' . $class : ($id !== '' ? '#' . $id : ''));
+}
+
 /* ---------- extraction & comparison ---------- */
 
-/** Every piece of text a visitor sees or a screen reader announces: text => where it was found. */
+/** Every piece of text a visitor sees or a screen reader announces: text => ['where' => …, 'el' => …]. */
 function trwatch_extract($html) {
     $dom = new DOMDocument();
     $prev = libxml_use_internal_errors(true);
@@ -105,23 +140,27 @@ function trwatch_extract($html) {
     libxml_use_internal_errors($prev);
     $xp = new DOMXPath($dom);
 
-    $skip = "ancestor::script or ancestor::style or ancestor::noscript or ancestor::template or ancestor::svg"
-          . " or ancestor::*[@data-no-translation] or ancestor::*[@translate='no']"
-          . " or ancestor::*[@id='wpadminbar'] or ancestor::*[contains(@class,'trp-language-switcher')]"
-          . " or ancestor::*[contains(@class,'trp-floater-ls')]";
+    $skip = "ancestor-or-self::script or ancestor-or-self::style or ancestor-or-self::noscript or ancestor-or-self::template or ancestor-or-self::svg"
+          . " or ancestor-or-self::*[@data-no-translation] or ancestor-or-self::*[@translate='no']"
+          . " or ancestor-or-self::*[@id='wpadminbar'] or ancestor-or-self::*[contains(@class,'trp-language-switcher')]"
+          . " or ancestor-or-self::*[contains(@class,'trp-floater-ls')]";
+    foreach (trwatch_ignore_selectors() as $sel) {
+        $cond = trwatch_selector_to_xpath($sel);
+        if ($cond) $skip .= " or ancestor-or-self::*[$cond]";
+    }
     $found = [];
-    $add = function ($text, $where) use (&$found) {
+    $add = function ($text, $where, $el) use (&$found) {
         $t = trwatch_normalize($text);
-        if ($t !== '' && !isset($found[$t])) $found[$t] = $where;
+        if ($t !== '' && !isset($found[$t])) $found[$t] = ['where' => $where, 'el' => trwatch_describe($el)];
     };
-    foreach ($xp->query("//body//text()[normalize-space() and not($skip)]") as $n) $add($n->nodeValue, 'text');
+    foreach ($xp->query("//body//text()[normalize-space() and not($skip)]") as $n) $add($n->nodeValue, 'text', $n->parentNode);
     foreach ($xp->query("//body//*[(@alt or @title or @placeholder or @aria-label) and not($skip)]") as $el) {
         foreach (['alt', 'title', 'placeholder', 'aria-label'] as $attr) {
-            if ($el->hasAttribute($attr)) $add($el->getAttribute($attr), $attr);
+            if ($el->hasAttribute($attr)) $add($el->getAttribute($attr), $attr, $el);
         }
     }
-    foreach ($xp->query('//title') as $el) $add($el->textContent, 'title tag');
-    foreach ($xp->query("//meta[@name='description']/@content") as $a) $add($a->value, 'meta description');
+    foreach ($xp->query('//title') as $el) $add($el->textContent, 'title tag', null);
+    foreach ($xp->query("//meta[@name='description']") as $el) $add($el->getAttribute('content'), 'meta description', null);
     return $found;
 }
 
@@ -146,14 +185,14 @@ function trwatch_is_meaningful($text, array $allow) {
 function trwatch_compare($sourceHtml, $targetHtml, $lang, array $allow) {
     $source = trwatch_extract($sourceHtml);
     $target = trwatch_extract($targetHtml);
-    $same = array_filter(array_intersect_key($target, $source), fn($where, $text) => trwatch_is_meaningful($text, $allow), ARRAY_FILTER_USE_BOTH);
+    $same = array_filter(array_intersect_key($target, $source), fn($info, $text) => trwatch_is_meaningful($text, $allow), ARRAY_FILTER_USE_BOTH);
     if (!$same) return [];
 
     $status = trwatch_classify(array_keys($same), $lang);
     $out = [];
-    foreach ($same as $text => $where) {
+    foreach ($same as $text => $info) {
         if ($status[$text] === 'identical') continue;   // translated to the same text on purpose
-        $out[] = ['text' => mb_substr($text, 0, 300), 'where' => $where, 'status' => $status[$text]];
+        $out[] = ['text' => mb_substr($text, 0, 300), 'where' => $info['where'], 'el' => $info['el'], 'status' => $status[$text]];
     }
     return $out;
 }

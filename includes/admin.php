@@ -94,7 +94,18 @@ function trwatch_handle_settings() {
     $posted = isset($_POST['trwatch_langs']) && is_array($_POST['trwatch_langs']) ? array_map('sanitize_text_field', wp_unslash($_POST['trwatch_langs'])) : [];
     update_option(TRWATCH_OPT_LANGS, array_values(array_intersect($posted, array_keys(trwatch_target_languages()))), false);
 
-    wp_safe_redirect(add_query_arg('trwatch-saved', '1', trwatch_screen_url()));
+    $selectors = isset($_POST['trwatch_ignore']) ? explode("
+", sanitize_textarea_field(wp_unslash($_POST['trwatch_ignore']))) : [];
+    $valid = $invalid = [];
+    foreach (array_filter(array_map('trim', $selectors)) as $sel) {
+        if (trwatch_selector_to_xpath($sel)) $valid[] = $sel; else $invalid[] = $sel;
+    }
+    update_option(TRWATCH_OPT_IGNORE, implode("
+", $valid), false);
+
+    $args = ['trwatch-saved' => '1'];
+    if ($invalid) $args['trwatch-invalid'] = rawurlencode(implode(' ', $invalid));
+    wp_safe_redirect(add_query_arg($args, trwatch_screen_url()));
     exit;
 }
 
@@ -157,7 +168,9 @@ function trwatch_card($url, $strings, $label = null) {
         $h .= '<li data-hash="' . esc_attr(md5($s['text'])) . '">'
             . trwatch_status_badge($s['status'] ?? 'unknown')
             . '<span class="trwatch-where">' . esc_html(trwatch_where_label($s['where'])) . '</span>'
-            . '<span class="trwatch-text">' . esc_html($s['text']) . '</span>'
+            . '<span class="trwatch-text">' . esc_html($s['text'])
+            . (!empty($s['el']) ? '<span class="trwatch-el" title="' . esc_attr__('The element this text is in — add it under Settings → Ignore elements to stop checking it', 'translation-watchdog-for-translatepress') . '">' . esc_html($s['el']) . '</span>' : '')
+            . '</span>'
             . '<button type="button" class="button-link trwatch-skip" title="' . esc_attr__('Not an issue — hide this string from now on', 'translation-watchdog-for-translatepress') . '">'
             . esc_html__('Skip', 'translation-watchdog-for-translatepress') . '</button></li>';
     }
@@ -210,7 +223,7 @@ function trwatch_language_html(array $pages) {
         $url = array_key_first($ok);
         $issues += count($sitewide);
         $out .= '<h3>' . esc_html__('Sitewide (header, footer, popup…)', 'translation-watchdog-for-translatepress') . '</h3>'
-              . trwatch_card($url, array_map(fn($t) => ['text' => $t, 'where' => 'every page', 'status' => $first[$t]['status'] ?? 'unknown'], $sitewide),
+              . trwatch_card($url, array_map(fn($t) => ['text' => $t, 'where' => 'every page', 'el' => $first[$t]['el'] ?? '', 'status' => $first[$t]['status'] ?? 'unknown'], $sitewide),
                   /* translators: %s: page path */
                   sprintf(__('Shown on most pages — fix once, e.g. on %s', 'translation-watchdog-for-translatepress'), wp_make_link_relative($url)));
     }
@@ -423,6 +436,14 @@ function trwatch_render() {
             if (!empty($_GET['trwatch-saved'])) : ?>
                 <div class="notice notice-success is-dismissible"><p><?php esc_html_e('Settings saved — click Refresh to apply them.', 'translation-watchdog-for-translatepress'); ?></p></div>
             <?php endif; ?>
+            <?php // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only list after the settings redirect
+            $trwatch_invalid = isset($_GET['trwatch-invalid']) ? sanitize_text_field(rawurldecode(wp_unslash($_GET['trwatch-invalid']))) : '';
+            if ($trwatch_invalid !== '') : ?>
+                <div class="notice notice-warning is-dismissible"><p><?php
+                    /* translators: %s: the selectors that were not saved */
+                    echo esc_html(sprintf(__('These selectors are not supported and were not saved: %s', 'translation-watchdog-for-translatepress'), $trwatch_invalid));
+                ?></p></div>
+            <?php endif; ?>
 
             <h1><?php esc_html_e('Translation Watchdog', 'translation-watchdog-for-translatepress'); ?>
                 <button id="trwatch-refresh" type="button" class="button button-primary" <?php disabled(!$targets); ?>><?php esc_html_e('Refresh', 'translation-watchdog-for-translatepress'); ?></button></h1>
@@ -449,6 +470,10 @@ function trwatch_render() {
                     <p><label for="trwatch-allow"><strong><?php esc_html_e('Allowlist', 'translation-watchdog-for-translatepress'); ?></strong> —
                         <?php esc_html_e('words or names that stay the same in every language (brands, product names), one per line', 'translation-watchdog-for-translatepress'); ?></label><br>
                         <textarea id="trwatch-allow" name="trwatch_allow" rows="8" cols="50"><?php echo esc_textarea(implode("\n", trwatch_allowlist())); ?></textarea></p>
+                    <p><label for="trwatch-ignore"><strong><?php esc_html_e('Ignore elements', 'translation-watchdog-for-translatepress'); ?></strong> —
+                        <?php esc_html_e('text inside these elements is not checked, one CSS selector per line. Each finding shows the element it is in.', 'translation-watchdog-for-translatepress'); ?></label><br>
+                        <textarea id="trwatch-ignore" name="trwatch_ignore" rows="6" cols="50" placeholder=".screen-reader-text&#10;button.breakdance-menu-close-button&#10;#cookie-banner"><?php echo esc_textarea(implode("\n", trwatch_ignore_selectors())); ?></textarea><br>
+                        <span class="description"><?php esc_html_e('Supported: tag, .class, #id, [attribute] and combinations such as button.close — no spaces or child selectors.', 'translation-watchdog-for-translatepress'); ?></span></p>
                     <p><button class="button" name="trwatch_save" value="1"><?php esc_html_e('Save settings', 'translation-watchdog-for-translatepress'); ?></button></p>
                 </form>
             </details>

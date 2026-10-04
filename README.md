@@ -22,6 +22,7 @@ Text that was deliberately translated to the same words (brand names, "FAQ") is 
 - Every finding links to the translated page and straight into the TranslatePress editor.
 - Header/footer/popup strings are grouped once under **Sitewide**.
 - **Skip** hides false positives, **Undo** brings them back; an allowlist ignores brand and product names.
+- **Ignore elements**: CSS selectors for whole components that should not be checked (hidden screen-reader text, a cookie banner…). Every finding shows the element it is in.
 - **Retry** rescans only the pages that could not be fetched.
 - Several translation languages: choose which ones to check.
 
