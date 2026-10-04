@@ -125,6 +125,8 @@ function trwatch_extract($html) {
 
 /** Whether identical text on both pages is worth reporting (not a number, URL, brand-like token…). */
 function trwatch_is_meaningful($text, array $allow) {
+    // code-like identifiers: cookie names (_ga_M91EW3L52D, _clck), CSS classes, keys, file names
+    if (!preg_match('/\s/u', $text) && preg_match('/[_\d]|^[^\p{L}]|\p{Ll}\p{Lu}|\.\p{L}{2,4}$/u', $text)) return false;
     foreach ($allow as $a) $text = str_ireplace($a, ' ', $text);
     $text = preg_replace(['~https?://\S+~u', '~\S+@\S+\.\S+~u'], ' ', $text);
     preg_match_all('/\p{L}+/u', $text, $m);

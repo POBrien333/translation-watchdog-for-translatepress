@@ -5,6 +5,7 @@
 - Detection works for any language pair: each translated page is compared with its original; identical text is checked against TranslatePress' string tables (not translated / translated but not shown / not in TranslatePress). Deliberately identical translations are hidden.
 - Several translation languages can be checked in one scan.
 - Meta descriptions are checked too.
+- Code-like identifiers (cookie names such as `_ga_…`, camelCase keys, file names) are ignored.
 - Updates from GitHub releases (once the `Update URI` header is set).
 - Replaces the German word list and its filters (`trwatch_source_words`, `trwatch_target_words`).
 - Local sites (self-signed certificates) are fetched one page at a time instead of with direct cURL calls; `trwatch_sslverify` filter.
