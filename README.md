@@ -16,6 +16,26 @@ Text that was deliberately translated to the same words (brand names, "FAQ") is 
 
 > **Status:** 0.x — in testing. Expect changes.
 
+## How it looks
+
+![The Watchdog tab during a scan: results appear page by page](docs/screenshot.png)
+
+1. **Refresh** — scans the whole site again. Runs automatically when you open the tab.
+2. **Progress** — results appear while the scan runs, with a running count.
+3. **Re-check** — checks just this page again after you fixed it.
+4. **Open in translator** — opens the page straight in the TranslatePress editor.
+5. **Status** — why the text is untranslated (see the table above).
+6. **Skip** — hides a false positive, such as a name that stays the same in every language.
+
+![Settings: allowlist and ignored elements](docs/settings.png)
+
+7. **Allowlist** — words and names that stay the same in every language (brands, product names). They are ignored inside any text.
+8. **Ignore elements** — CSS selectors for whole components that should not be checked, such as a cookie banner. Every finding shows the element it sits in, ready to copy.
+
+![Skipped strings, each with an Undo link](docs/skipped.png)
+
+9. **Undo** — brings a skipped string back; it shows again on the next scan.
+
 ## Why does this exist?
 
 If you translate your site by hand to keep its quality and tone consistent, it's easy to miss a string — a button label, an image's alt text, a line somewhere. And every time you change the design, new strings appear that you might forget to translate.
