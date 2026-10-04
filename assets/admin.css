@@ -8,7 +8,9 @@
 .trwatch-head a:first-child{flex:1;word-break:break-all}
 .trwatch-n{background:#d63638;color:#fff;border-radius:10px;padding:0 8px;font-size:12px}
 .trwatch-page ul{margin:0;padding:8px 14px}
-.trwatch-page li,.trwatch-skiplist li{display:flex;gap:10px;align-items:baseline;margin:4px 0}
+.trwatch-page li,.trwatch-skiplist li{display:flex;gap:10px;align-items:baseline;margin:0;padding:5px 0;border-bottom:1px solid #f3f3f4}
+.trwatch-page li:last-child,.trwatch-skiplist li:last-child{border-bottom:0}
+.trwatch-page li:hover,.trwatch-skiplist li:hover{background:#f9f9fa}
 .trwatch-where{flex:0 0 80px;color:#787c82;font-size:11px;text-transform:uppercase}
 .trwatch-text{flex:1}
 .trwatch-badge{flex:0 0 auto;border-radius:3px;padding:0 6px;font-size:11px;line-height:18px;white-space:nowrap;cursor:help}
