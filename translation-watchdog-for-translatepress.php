@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Translation Watchdog for TranslatePress
  * Description:       Adds a Watchdog tab to the TranslatePress settings: compares every translated page with its original and lists text that was never translated — for any language combination.
- * Version:           0.3.1
+ * Version:           0.3.2
  * Requires at least: 6.5
  * Requires PHP:      8.0
  * Requires Plugins:  translatepress-multilingual
@@ -16,7 +16,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-const TRWATCH_VERSION    = '0.3.1';
+const TRWATCH_VERSION    = '0.3.2';
 const TRWATCH_FILE       = __FILE__;
 const TRWATCH_SLUG       = 'translation-watchdog-for-translatepress';
 const TRWATCH_OPT_RESULT = 'trwatch_last_scan';

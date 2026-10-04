@@ -127,6 +127,7 @@ function trwatch_selector_to_xpath($selector) {
 /** The element a finding came from, as "tag.first-class" — what to enter under "Ignore elements". */
 function trwatch_describe($el) {
     if (!$el instanceof DOMElement) return '';
+    if ($el->nodeName === 'img') return '';   // builders give every image the same class; the alt text identifies it better
     $class = preg_split('/\s+/', trim($el->getAttribute('class')))[0] ?? '';
     $id = $el->getAttribute('id');
     if ($class === '' && $id === '') return '';   // a bare tag (strong, a, p) is no use for ignoring

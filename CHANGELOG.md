@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+- No element label on image findings: page builders give every image the same class, so it adds nothing; the alt text identifies the image.
+
 ## 0.3.1
 
 - The element under a finding is only shown when it has a class or ID (bare tags such as `strong` or `a` are useless for ignoring and read like part of the text), and is prefixed with "in".
