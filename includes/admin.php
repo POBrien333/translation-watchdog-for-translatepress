@@ -54,8 +54,10 @@ add_action('admin_enqueue_scripts', function ($hook) {
     if (defined('TRP_PLUGIN_URL') && defined('TRP_PLUGIN_VERSION')) {
         wp_enqueue_style('trp-settings-style', TRP_PLUGIN_URL . 'assets/css/trp-back-end-style.css', [], TRP_PLUGIN_VERSION);
     }
-    wp_enqueue_style('trwatch-admin', plugins_url('assets/admin.css', TRWATCH_FILE), [], TRWATCH_VERSION);
-    wp_enqueue_script('trwatch-admin', plugins_url('assets/admin.js', TRWATCH_FILE), [], TRWATCH_VERSION, true);
+    // file time in the version: a changed file is always reloaded, even within one plugin version
+    $trwatch_dir = plugin_dir_path(TRWATCH_FILE);
+    wp_enqueue_style('trwatch-admin', plugins_url('assets/admin.css', TRWATCH_FILE), [], TRWATCH_VERSION . '.' . filemtime($trwatch_dir . 'assets/admin.css'));
+    wp_enqueue_script('trwatch-admin', plugins_url('assets/admin.js', TRWATCH_FILE), [], TRWATCH_VERSION . '.' . filemtime($trwatch_dir . 'assets/admin.js'), true);
     wp_localize_script('trwatch-admin', 'trwatchData', [
         'ajax'  => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('trwatch'),
@@ -437,7 +439,7 @@ function trwatch_render() {
                 <div class="notice notice-success is-dismissible"><p><?php esc_html_e('Settings saved — click Refresh to apply them.', 'translation-watchdog-for-translatepress'); ?></p></div>
             <?php endif; ?>
             <?php // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only list after the settings redirect
-            $trwatch_invalid = isset($_GET['trwatch-invalid']) ? sanitize_text_field(rawurldecode(wp_unslash($_GET['trwatch-invalid']))) : '';
+            $trwatch_invalid = isset($_GET['trwatch-invalid']) ? sanitize_text_field(wp_unslash($_GET['trwatch-invalid'])) : '';
             if ($trwatch_invalid !== '') : ?>
                 <div class="notice notice-warning is-dismissible"><p><?php
                     /* translators: %s: the selectors that were not saved */

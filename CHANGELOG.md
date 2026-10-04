@@ -3,6 +3,8 @@
 ## 0.3.0
 
 - Each finding shows the element it is in (e.g. `button.breakdance-menu-close-button`).
+- Fix: a batch could exceed the PHP time limit when pages are fetched one by one (local sites).
+- Fix: the script and stylesheet are reloaded whenever they change (an old cached script made Skip fail with "Unknown string").
 - New setting **Ignore elements**: CSS selectors (tag, .class, #id, [attribute] and combinations) whose text is not checked. Unsupported selectors are reported, not saved.
 
 ## 0.2.0

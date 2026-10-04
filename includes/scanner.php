@@ -86,6 +86,9 @@ function trwatch_fetch(array $urls) {
     }
 
     foreach ($urls as $u) {
+        // one by one: give every request its own time budget, or a batch of slow pages outruns the limit
+        // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged
+        if (function_exists('set_time_limit')) set_time_limit(TRWATCH_TIMEOUT + 30);
         $res = wp_remote_get($u, ['timeout' => TRWATCH_TIMEOUT, 'sslverify' => $verify, 'redirection' => 3, 'headers' => ['User-Agent' => $ua]]);
         if (is_wp_error($res)) { $out[$u] = ['html' => null, 'error' => $res->get_error_message()]; continue; }
         $code = (int) wp_remote_retrieve_response_code($res);
