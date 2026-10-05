@@ -59,7 +59,7 @@
 
     function refreshCounts() {
         let total = 0;
-        results.querySelectorAll('.trwatch-page:not(.trwatch-err):not(.trwatch-ok)').forEach(card => {
+        results.querySelectorAll('.trwatch-page:not(.trwatch-err):not(.trwatch-ok):not(.is-ignoring)').forEach(card => {
             const n = card.querySelectorAll('li').length;
             card.hidden = !n;   // hidden, not removed, so a failed skip can put rows back
             const badge = card.querySelector('.trwatch-n'); if (badge) badge.textContent = n;
@@ -138,8 +138,43 @@
         }
     }
 
+    function showIgnored(d) {
+        document.getElementById('trwatch-ignored').innerHTML = d.html;
+        document.getElementById('trwatch-ignoredcount').textContent = d.count;
+    }
+
+    // leave a page out of future scans; its card goes at once, and comes back if saving fails
+    async function ignorePage(ibtn) {
+        const card = ibtn.closest('.trwatch-page');
+        if (!card) return;
+        card.classList.add('is-ignoring');
+        refreshCounts();
+        try {
+            const r = await post('trwatch_ignore_page', {url: card.dataset.url, scan: currentScan, undo: '0'});
+            if (!r.success) fail(r);
+            card.remove();
+            showIgnored(r.data);
+        } catch (e) {
+            card.classList.remove('is-ignoring');
+            refreshCounts();
+            alert(i18n.ignoreFailed + ' ' + e.message);
+        }
+    }
+
+    async function unignorePage(url) {
+        try {
+            const r = await post('trwatch_ignore_page', {url, undo: '1'});
+            if (!r.success) fail(r);
+            showIgnored(r.data);   // checked again from the next scan
+        } catch (e) { alert(i18n.undoPageFailed + ' ' + e.message); }
+    }
+
     document.addEventListener('click', e => {
         if (e.target.id === 'trwatch-retry') return retry(e.target);
+        const ig = e.target.closest('.trwatch-ignore-page');
+        if (ig) return ignorePage(ig);
+        const ug = e.target.closest('.trwatch-unignore-page');
+        if (ug) return unignorePage(ug.closest('li').dataset.url);
         const rc = e.target.closest('.trwatch-recheck');
         if (rc) return recheck(rc);
         const s = e.target.closest('.trwatch-skip'), u = e.target.closest('.trwatch-unskip');

@@ -52,6 +52,7 @@ TranslatePress shows you a page at a time, so there is no quick way to see what'
 - Header/footer/popup strings are grouped once under **Sitewide**.
 - **Skip** hides false positives, **Undo** brings them back; an allowlist ignores brand and product names.
 - **Ignore elements**: CSS selectors for whole components that should not be checked (hidden screen-reader text, a cookie banner…). Every finding shows the element it is in.
+- **Ignore page** leaves a page out of future scans (an unpublished popup, a seasonal page); **Undo** brings it back.
 - **Retry** rescans only the pages that could not be fetched.
 - Several translation languages: choose which ones to check.
 
@@ -70,6 +71,7 @@ Updates appear in the WordPress admin like any other plugin (from GitHub release
 | Filter | Purpose |
 |---|---|
 | `trwatch_urls` | Array of source-language URLs to check. |
+| `trwatch_post_types` | Post types whose entries are scanned (default: public types that are not excluded from search — page-builder template libraries are left out). |
 | `trwatch_sslverify` | Whether to verify SSL certificates when fetching your own pages (default: off on local hosts such as `*.test`, on everywhere else). |
 
 ## Development

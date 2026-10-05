@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.8
+
+- **Ignore page** on each page card: leaves the page out of future scans, for every language. Listed under **Ignored pages** with Undo — the page is checked again from the next scan (e.g. a seasonal popup once it goes live).
+- Post types excluded from search are no longer scanned. Page builders register their template libraries as public (Elementor: `elementor_library` — popups, headers, sections), which listed every template as a page. New filter `trwatch_post_types`.
+
 ## 0.3.7
 
 - Fix: after an update the Watchdog screen could keep the old look (blue underlined icon, no indent) until a hard reload. Some sites strip the `?ver=` query string from file URLs and send CSS with a one-year browser cache. The screen's CSS and JS are now embedded in the page, so updates take effect immediately.

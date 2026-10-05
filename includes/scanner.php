@@ -7,11 +7,27 @@ if (!defined('ABSPATH')) exit;
 
 /* ---------- URL list ---------- */
 
+/**
+ * Post types whose entries are real pages for visitors.
+ * Types excluded from search are skipped: page builders register their template libraries
+ * (Elementor popups, headers, sections) as public, but nobody visits them as pages.
+ */
+function trwatch_post_types() {
+    $types = array_values(array_diff(get_post_types(['public' => true, 'exclude_from_search' => false]), ['attachment']));
+    /** Filters the post types whose entries are scanned. */
+    return (array) apply_filters('trwatch_post_types', $types);
+}
+
+/** Pages left out of the scan (source-language URLs), until undone. */
+function trwatch_ignored_pages() {
+    return array_values((array) get_option(TRWATCH_OPT_IGNORED_PAGES, []));
+}
+
 /** Source-language URLs of every public page, post, product and archive. */
 function trwatch_source_urls() {
     $urls = [home_url('/')];
     $posts = get_posts([
-        'post_type'      => array_values(array_diff(get_post_types(['public' => true]), ['attachment'])),
+        'post_type'      => trwatch_post_types(),
         'post_status'    => 'publish',
         'posts_per_page' => -1,
         'has_password'   => false,
@@ -27,7 +43,8 @@ function trwatch_source_urls() {
 
     /** Filters the source-language URLs to check. */
     $urls = (array) apply_filters('trwatch_urls', $urls);
-    return array_values(array_unique(array_filter($urls, 'is_string')));
+    $urls = array_values(array_unique(array_filter($urls, 'is_string')));
+    return array_values(array_diff($urls, trwatch_ignored_pages()));
 }
 
 /* ---------- allowlist / skipped ---------- */

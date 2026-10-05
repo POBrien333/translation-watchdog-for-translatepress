@@ -4,7 +4,7 @@ Tags: translatepress, translation, multilingual, quality, untranslated
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.3.7
+Stable tag: 0.3.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -26,6 +26,10 @@ Adds a **Watchdog** tab to the TranslatePress settings. It compares every public
 3. Open Settings → TranslatePress → Watchdog.
 
 == Changelog ==
+
+= 0.3.8 =
+* "Ignore page" on each page card, with Undo under "Ignored pages".
+* Page-builder template libraries (e.g. Elementor popups and headers) are no longer scanned.
 
 = 0.3.7 =
 * Fix: "Check again" on Dashboard → Updates finds new releases immediately.

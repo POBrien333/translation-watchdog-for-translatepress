@@ -80,6 +80,8 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'retryFailed' => __('Retry failed:', 'translation-watchdog-for-translatepress'),
             'skipFailed'  => __('Could not skip:', 'translation-watchdog-for-translatepress'),
             'undoFailed'  => __('Could not undo:', 'translation-watchdog-for-translatepress'),
+            'ignoreFailed' => __('Could not ignore the page:', 'translation-watchdog-for-translatepress'),
+            'undoPageFailed' => __('Could not take the page back in:', 'translation-watchdog-for-translatepress'),
             'recheckFailed' => __('Could not check the page again:', 'translation-watchdog-for-translatepress'),
             'expired'     => __('Session expired — reload the page.', 'translation-watchdog-for-translatepress'),
             /* translators: %d: HTTP status code */
@@ -173,12 +175,18 @@ function trwatch_recheck_button() {
          . '<span class="dashicons dashicons-update"></span></button>';
 }
 
+/** Button that leaves a page out of future scans (reversible under "Ignored pages"). */
+function trwatch_ignore_button() {
+    return '<button type="button" class="button-link trwatch-ignore-page" title="' . esc_attr__('Leave this page out of future scans — undo under Ignored pages', 'translation-watchdog-for-translatepress') . '">'
+         . esc_html__('Ignore page', 'translation-watchdog-for-translatepress') . '</button>';
+}
+
 /** One page with its findings. A label (the sitewide group) means it is not a single page, so no re-check button. */
 function trwatch_card($url, $strings, $label = null) {
     $edit = add_query_arg('trp-edit-translation', 'true', $url);
     $h = '<div class="trwatch-page"' . ($label === null ? ' data-url="' . esc_attr($url) . '"' : '') . '><div class="trwatch-head"><a href="' . esc_url($url) . '" target="_blank" rel="noopener">'
        . esc_html($label ?? wp_make_link_relative($url)) . '</a>'
-       . ($label === null ? trwatch_recheck_button() : '')
+       . ($label === null ? trwatch_recheck_button() . trwatch_ignore_button() : '')
        . '<a class="button button-small" href="' . esc_url($edit) . '" target="_blank" rel="noopener">' . esc_html__('Open in translator', 'translation-watchdog-for-translatepress') . '</a>'
        . '<span class="trwatch-n">' . (int) count($strings) . '</span></div><ul>';
     foreach ($strings as $s) {
@@ -196,7 +204,7 @@ function trwatch_card($url, $strings, $label = null) {
 
 function trwatch_error_card($url, $error) {
     return '<div class="trwatch-page trwatch-err" data-url="' . esc_attr($url) . '"><div class="trwatch-head"><a href="' . esc_url($url) . '" target="_blank" rel="noopener">'
-         . esc_html(wp_make_link_relative($url)) . '</a>' . trwatch_recheck_button() . '<span class="trwatch-errmsg">' . esc_html($error) . '</span></div></div>';
+         . esc_html(wp_make_link_relative($url)) . '</a>' . trwatch_recheck_button() . trwatch_ignore_button() . '<span class="trwatch-errmsg">' . esc_html($error) . '</span></div></div>';
 }
 
 /** A re-checked page with nothing left to fix. */
@@ -278,7 +286,9 @@ function trwatch_results_html() {
     $names = trwatch_target_languages();
     $byLang = [];
     $errors = [];
+    $ignored = trwatch_ignored_pages();
     foreach ($scan['pages'] as $url => $p) {
+        if (!empty($p['source']) && in_array($p['source'], $ignored, true)) continue;
         $p += ['lang' => 'en_GB', 'error' => null, 'strings' => []];   // scans from older versions
         if ($p['error']) $errors[$url] = $p['error'];
         $byLang[$p['lang']][$url] = $p;
@@ -314,6 +324,17 @@ function trwatch_results_html() {
          . '<strong class="trwatch-total">' . (int) $issues . '</strong> ' . esc_html__('possible issues', 'translation-watchdog-for-translatepress') . ' · '
          /* translators: %d: number of pages */
          . esc_html(sprintf(_n('%d page checked', '%d pages checked', $total, 'translation-watchdog-for-translatepress'), $total)) . '</p>' . $out;
+}
+
+function trwatch_ignored_html() {
+    $pages = trwatch_ignored_pages();
+    if (!$pages) return '<p class="description">' . esc_html__('No pages ignored.', 'translation-watchdog-for-translatepress') . '</p>';
+    $h = '<ul class="trwatch-skiplist">';
+    foreach ($pages as $u) {
+        $h .= '<li data-url="' . esc_attr($u) . '"><span class="trwatch-text">' . esc_html(wp_make_link_relative($u)) . '</span>'
+            . '<button type="button" class="button-link trwatch-unignore-page">' . esc_html__('Undo', 'translation-watchdog-for-translatepress') . '</button></li>';
+    }
+    return $h . '</ul>';
 }
 
 function trwatch_skipped_html() {
@@ -461,6 +482,31 @@ function trwatch_known_texts($scanId) {
     return $texts;
 }
 
+// leave a page out of future scans, or take it back in
+add_action('wp_ajax_trwatch_ignore_page', function () {
+    check_ajax_referer('trwatch');
+    trwatch_require_cap();
+    $url = isset($_POST['url']) ? esc_url_raw(wp_unslash($_POST['url'])) : '';
+    $undo = isset($_POST['undo']) && '1' === sanitize_key(wp_unslash($_POST['undo']));
+    $ignored = trwatch_ignored_pages();
+
+    if ($undo) {
+        // the posted URL is an original-language URL from the ignored list
+        if (!in_array($url, $ignored, true)) wp_send_json_error(__('Not in the ignored list.', 'translation-watchdog-for-translatepress'));
+        $ignored = array_values(array_diff($ignored, [$url]));
+    } else {
+        // the posted URL is a translated page; ignore its original, so every language skips it
+        $saved = trwatch_saved_scan();
+        $scanId = trwatch_posted_scan_id();
+        $run = $scanId ? get_transient(trwatch_run_key($scanId)) : false;
+        $page = $saved['pages'][$url] ?? ($run['pages'][$url] ?? null);
+        if (!$page || empty($page['source'])) wp_send_json_error(__('This page is not in the last scan — click Refresh.', 'translation-watchdog-for-translatepress'));
+        if (!in_array($page['source'], $ignored, true)) $ignored[] = $page['source'];
+    }
+    update_option(TRWATCH_OPT_IGNORED_PAGES, $ignored, false);
+    wp_send_json_success(['html' => trwatch_kses(trwatch_ignored_html()), 'count' => count($ignored)]);
+});
+
 add_action('wp_ajax_trwatch_skip', function () {
     check_ajax_referer('trwatch');
     trwatch_require_cap();
@@ -520,6 +566,10 @@ function trwatch_render() {
 
             <details class="trwatch-box"><summary><?php esc_html_e('Skipped strings', 'translation-watchdog-for-translatepress'); ?> (<span id="trwatch-skipcount"><?php echo (int) count(trwatch_skipped()); ?></span>)</summary>
                 <div id="trwatch-skipped"><?php echo wp_kses(trwatch_skipped_html(), trwatch_allowed_html()); ?></div>
+            </details>
+            <details class="trwatch-box"><summary><?php esc_html_e('Ignored pages', 'translation-watchdog-for-translatepress'); ?> (<span id="trwatch-ignoredcount"><?php echo (int) count(trwatch_ignored_pages()); ?></span>)</summary>
+                <p class="description"><?php esc_html_e('Left out of every scan, e.g. unpublished popups or seasonal pages. Undo to check a page again from the next scan.', 'translation-watchdog-for-translatepress'); ?></p>
+                <div id="trwatch-ignored"><?php echo wp_kses(trwatch_ignored_html(), trwatch_allowed_html()); ?></div>
             </details>
             <details class="trwatch-box"><summary><?php esc_html_e('Settings', 'translation-watchdog-for-translatepress'); ?></summary>
                 <form method="post" action="<?php echo esc_url(trwatch_screen_url()); ?>">
