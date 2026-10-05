@@ -186,7 +186,8 @@ function trwatch_card($url, $strings, $label = null) {
     $edit = add_query_arg('trp-edit-translation', 'true', $url);
     $h = '<div class="trwatch-page"' . ($label === null ? ' data-url="' . esc_attr($url) . '"' : '') . '><div class="trwatch-head"><a href="' . esc_url($url) . '" target="_blank" rel="noopener">'
        . esc_html($label ?? wp_make_link_relative($url)) . '</a>'
-       . ($label === null ? trwatch_recheck_button() . trwatch_ignore_button() : '')
+       . ($label === null ? trwatch_recheck_button() : '')
+       . ($label === null ? trwatch_ignore_button() : '')   // right side, next to "Open in translator"
        . '<a class="button button-small" href="' . esc_url($edit) . '" target="_blank" rel="noopener">' . esc_html__('Open in translator', 'translation-watchdog-for-translatepress') . '</a>'
        . '<span class="trwatch-n">' . (int) count($strings) . '</span></div><ul>';
     foreach ($strings as $s) {
@@ -204,7 +205,7 @@ function trwatch_card($url, $strings, $label = null) {
 
 function trwatch_error_card($url, $error) {
     return '<div class="trwatch-page trwatch-err" data-url="' . esc_attr($url) . '"><div class="trwatch-head"><a href="' . esc_url($url) . '" target="_blank" rel="noopener">'
-         . esc_html(wp_make_link_relative($url)) . '</a>' . trwatch_recheck_button() . trwatch_ignore_button() . '<span class="trwatch-errmsg">' . esc_html($error) . '</span></div></div>';
+         . esc_html(wp_make_link_relative($url)) . '</a>' . trwatch_recheck_button() . '<span class="trwatch-errmsg">' . esc_html($error) . '</span>' . trwatch_ignore_button() . '</div></div>';
 }
 
 /** A re-checked page with nothing left to fix. */

@@ -38,3 +38,6 @@
 .wp-core-ui .trwatch-ignore-page{color:#787c82}
 .wp-core-ui .trwatch-ignore-page:hover{color:#b32d2e}
 .trwatch-page.is-ignoring{display:none}
+.trwatch-head .trwatch-ignore-page{margin-left:auto}
+.trwatch-head .trwatch-ignore-page+.button{margin-left:0}
+.trwatch-err .trwatch-errmsg+.trwatch-ignore-page{margin-left:12px}
